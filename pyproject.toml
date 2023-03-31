@@ -1,8 +1,8 @@
 [tool]
 [tool.poetry]
-name = "psline_psd"
+name = "pspline_psd"
 version = "0.0.1"
-homepage = "https://github.com/avivajpeyi/psline_psd"
+homepage = "https://github.com/avivajpeyi/pspline_psd"
 description = "p-spline PSD generator."
 authors = ["Avi Vajpeyi <avi.vajpeyi@gmail.com>"]
 readme = "README.md"
@@ -18,7 +18,7 @@ classifiers=[
 ]
 
 packages = [
-    { include = "psline_psd" },
+    { include = "pspline_psd" },
     { include = "tests", format = "sdist" },
 ]
 
@@ -70,7 +70,7 @@ doc = [
     ]
 
 [tool.poetry.scripts]
-psline_psd = 'psline_psd.cli:main'
+pspline_psd = 'pspline_psd.cli:main'
 
 [tool.black]
 line-length = 120

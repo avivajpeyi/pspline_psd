@@ -1,4 +1,4 @@
-* Python Boilerplate version:
+* P-spline PSD version:
 * Python version:
 * Operating System:
 

@@ -1,4 +1,4 @@
-"""Console script for psline_psd."""
+"""Console script for pspline_psd."""
 
 import click
 
@@ -6,8 +6,8 @@ import click
 @click.command()
 def main():
     """Main entrypoint."""
-    click.echo("psline_psd")
-    click.echo("=" * len("psline_psd"))
+    click.echo("pspline_psd")
+    click.echo("=" * len("pspline_psd"))
     click.echo("p-spline PSD generator")
 
 

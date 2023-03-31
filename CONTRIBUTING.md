@@ -9,7 +9,7 @@ You can contribute in many ways:
 
 ### Report Bugs
 
-Report bugs at https://github.com/avivajpeyi/psline_psd/issues.
+Report bugs at https://github.com/avivajpeyi/pspline_psd/issues.
 
 If you are reporting a bug, please include:
 
@@ -29,13 +29,13 @@ and "help wanted" is open to whoever wants to implement it.
 
 ### Write Documentation
 
-Python Boilerplate could always use more documentation, whether as part of the
-official Python Boilerplate docs, in docstrings, or even on the web in blog posts,
+P-spline PSD could always use more documentation, whether as part of the
+official P-spline PSD docs, in docstrings, or even on the web in blog posts,
 articles, and such.
 
 ### Submit Feedback
 
-The best way to send feedback is to file an issue at https://github.com/avivajpeyi/psline_psd/issues.
+The best way to send feedback is to file an issue at https://github.com/avivajpeyi/pspline_psd/issues.
 
 If you are proposing a feature:
 
@@ -46,13 +46,13 @@ If you are proposing a feature:
 
 ## Get Started!
 
-Ready to contribute? Here's how to set up `psline_psd` for local development.
+Ready to contribute? Here's how to set up `pspline_psd` for local development.
 
-1. Fork the `psline_psd` repo on GitHub.
+1. Fork the `pspline_psd` repo on GitHub.
 2. Clone your fork locally
 
     ```
-    $ git clone git@github.com:your_name_here/psline_psd.git
+    $ git clone git@github.com:your_name_here/pspline_psd.git
     ```
 
 3. Ensure [poetry](https://python-poetry.org/docs/) is installed.
@@ -96,13 +96,13 @@ Before you submit a pull request, check that it meets these guidelines:
    your new functionality into a function with a docstring, and add the
    feature to the list in README.md.
 3. The pull request should work for Python 3.6, 3.7, 3.8 and 3.9. Check
-   https://github.com/avivajpeyi/psline_psd/actions
+   https://github.com/avivajpeyi/pspline_psd/actions
    and make sure that the tests pass for all supported Python versions.
 
 ## Tips
 
 ```
-$ poetry run pytest tests/test_psline_psd.py
+$ poetry run pytest tests/test_pspline_psd.py
 ```
 
 To run a subset of tests.

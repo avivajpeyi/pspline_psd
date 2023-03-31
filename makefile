@@ -1,4 +1,4 @@
-sources = psline_psd
+sources = pspline_psd
 
 .PHONY: test format lint unittest coverage pre-commit clean
 test: format lint unittest

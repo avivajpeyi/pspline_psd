@@ -1,7 +1,7 @@
 # Usage
 
-To use Python Boilerplate in a project
+To use P-spline PSD in a project
 
 ```
-import psline_psd
+import pspline_psd
 ```

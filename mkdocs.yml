@@ -1,7 +1,7 @@
-site_name: Python Boilerplate
-site_url: https://avivajpeyi.github.io/psline_psd
-repo_url: https://github.com/avivajpeyi/psline_psd
-repo_name: avivajpeyi/psline_psd
+site_name: P-spline PSD
+site_url: https://avivajpeyi.github.io/pspline_psd
+repo_url: https://github.com/avivajpeyi/pspline_psd
+repo_name: avivajpeyi/pspline_psd
 #strict: true
 nav:
   - Home: index.md
@@ -51,7 +51,7 @@ plugins:
       lang: en
   - mkdocstrings:
       watch:
-        - psline_psd
+        - pspline_psd
 extra:
   social:
     - icon: fontawesome/brands/twitter
@@ -63,7 +63,7 @@ extra:
       link: https://github.com/DarkDemiurg/cookiecutter-pypackage
       name: Facebook
     - icon: fontawesome/brands/github
-      link: https://github.com/avivajpeyi/psline_psd
+      link: https://github.com/avivajpeyi/pspline_psd
       name: Github
     - icon: material/email
       link: "mailto:avi.vajpeyi@gmail.com"

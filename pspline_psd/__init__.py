@@ -1,4 +1,4 @@
-"""Top-level package for Python Boilerplate."""
+"""Top-level package for P-spline PSD."""
 
 __author__ = """Avi Vajpeyi"""
 __email__ = 'avi.vajpeyi@gmail.com'

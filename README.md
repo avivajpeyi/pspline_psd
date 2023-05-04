@@ -1,5 +1,7 @@
 # P-spline PSD
 
+Python implementation of Patricio Maturana-Russel (@pmat747)'s P-spline PSD
+https://github.com/pmat747/psplinePsd
 
 [![pypi](https://img.shields.io/pypi/v/pspline_psd.svg)](https://pypi.org/project/pspline_psd/)
 [![python](https://img.shields.io/pypi/pyversions/pspline_psd.svg)](https://pypi.org/project/pspline_psd/)

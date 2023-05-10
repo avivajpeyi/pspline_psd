@@ -1,6 +1,21 @@
 """Pytest setup"""
+import os.path
+
 import pytest
 import numpy as np
+import rpy2.robjects as robjects
+from pathlib import Path
+import glob
+
+import matplotlib.pyplot as plt
+
+from collections import namedtuple
+
+DIR = Path(__file__).parent
+DATA_DIR = DIR / 'data'
+DATA_PATHS = dict(
+    data_0=DATA_DIR / 'data_0.Rdata',
+)
 
 
 def pytest_configure(config):
@@ -8,32 +23,70 @@ def pytest_configure(config):
     import pspline_psd  # noqa
 
 
+def load_rdata(path):
+    robjects.r['load'](str(path))
+    d = dict(data=np.array(robjects.r['data']))
+    d.update(dict(**r_obj_as_dict(robjects.r['mcmc'])))
+    return d
+
+
+def r_obj_as_dict(vector):
+    """Convert an RPy2 ListVector to a Python dict"""
+    result = {}
+    r2np_types = [robjects.FloatVector, robjects.IntVector, robjects.Matrix, robjects.vectors.FloatMatrix]
+    for i, name in enumerate(vector.names):
+        if isinstance(vector[i], robjects.ListVector):
+            result[name] = r_obj_as_dict(vector[i])
+        elif len(vector[i]) == 1:
+            result[name] = vector[i][0]
+        elif type(vector[i]) in r2np_types:
+            result[name] = np.array(vector[i])
+        else:
+            result[name] = vector[i]
+    return result
+
+
+def mkdir(path):
+    path = str(path)
+    if not os.path.exists(path):
+        os.makedirs(path)
+    return path
+
+
+class Helpers:
+    SAVE_PLOTS = True
+    OUTDIR = mkdir(os.path.join(DIR,'test_output'))
+
+    @staticmethod
+    def load_data_0():
+        return load_rdata(DATA_PATHS['data_0'])
+
+    @staticmethod
+    def plot_comparison(expected, actual, label):
+        fig, (ax0, ax1) = plt.subplots(
+            2,
+            1,
+            gridspec_kw={"height_ratios": [3, 1], "wspace": 0, "hspace": 0},
+            sharex=True,
+        )
+        ax0.plot(expected, label='True', color="C0", alpha=0.5)
+        ax0.plot(actual, label='computed', color="C1", alpha=0.5, ls='--')
+        ax0.legend()
+        try:
+            ax1.errorbar(
+                [i for i in range(len(expected))], [0] * len(expected), yerr=abs(expected - actual), fmt=".",
+                ms=0.5, color='k')
+        except Exception as e:
+            print(e)
+        ax1.set_xlabel('index')
+        ax1.set_ylabel(r"$\Delta$" + label)
+        ax0.set_ylabel(label)
+        fig.tight_layout()
+        if Helpers.SAVE_PLOTS:
+            fig.savefig(os.path.join(Helpers.OUTDIR, f'{label}.png'), dpi=300)
+        return fig
+
+
 @pytest.fixture
-def ar4_data():
-    """Data from r AR(4) model:
-
-        set.seed(12345)
-        n = 2 ^ 7
-        ar.ex = c(0.9, -0.9, 0.9, -0.9)
-        data = arima.sim(n, model = list(ar = ar.ex))
-        data = data - mean(data)
-
-    """
-    data = np.array([
-        2.588536, 0.7051999, -1.708954, 0.1467139, 0.04596411, -1.910313, -1.023606, 0.1588615, 0.2004872,
-        0.8194027,
-        1.255247, -0.7063906, -2.160415, -1.81887, -1.550275, 0.2065225, 2.023976, 1.063708, 0.765678, 1.76422,
-        -0.8274608, -3.663432, -0.4987348, 1.098679, -0.7528115, 0.687953, 3.010225, 1.720503, -0.2253532, 1.739405,
-        -0.08701345, -2.094006, 0.6397694, 0.06280312, -2.30449, 0.5692343, 0.9107324, -1.367161, 1.095637,
-        4.831714,
-        2.2733, 0.7815993, 4.024103, 1.078652, -3.292193, -0.8441942, 0.6312257, -1.322483, 1.014454, 2.590375,
-        -2.468496, -1.942473, 0.9310559, -1.185007, -0.3340464, 2.85013, 0.596015, -0.1887994, 3.431692, 2.794644,
-        -1.367554, -1.354844, -0.1406445, -3.870665, -3.549381, 1.607572, 0.4711476, -0.7868019, 2.722574, 1.198649,
-        -3.348917, -2.943884, -1.078927, -1.04599, 0.433527, 0.8421257, 1.011134, 2.383237, 1.173773, -1.468715,
-        -1.586823, -1.131025, -1.996447, -0.8404912, 1.39191, 1.167118, 1.360511, 0.8456014, -0.3860796, -0.1134007,
-        -0.01090654, -0.7878663, -0.1566957, -0.4337637, -0.02524465, 0.7623465, -1.487803, -1.816436, 0.7059538,
-        -0.4230867, -2.089895, 0.7272859, 1.276447, -2.357485, -3.133292, 0.3494558, -1.005316, 1.481934, 5.278775,
-        2.48704, 0.670896, -0.2976139, -3.54925, -6.490773, -4.685088, -0.3863307, 1.243738, 3.564543, 6.793782,
-        5.309201, -0.4332585, -2.350974, -3.505662, -5.72569, -3.090991, 2.126798, 2.351604, 2.683892])
-    data = data - np.mean(data)
-    return data
+def helpers():
+    return Helpers

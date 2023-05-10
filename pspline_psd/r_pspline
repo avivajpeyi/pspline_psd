@@ -1,5 +1,6 @@
 
 
+
 #' This function does not need a posterior pilot sample
 #'
 #' @importFrom Rcpp evalCpp

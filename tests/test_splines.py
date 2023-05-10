@@ -1,5 +1,7 @@
+import matplotlib.pyplot as plt
 import numpy as np
-from pspline_psd.splines import BSpline, PSpline
+from pspline_psd.splines import BSpline, PSpline, knot_locator, dbspline
+from pspline_psd.utils import get_fz
 
 MAKE_PLOTS = True
 
@@ -24,5 +26,20 @@ def test_spline():
         plt.plot(knots, np.zeros_like(knots), 'o', label='knots')
         plt.legend()
         plt.show()
+
+
+
+
+def test_knot_locator(helpers):
+    data_0 = helpers.load_data_0()
+    data = data_0['data']
+    # format data:
+    data = data - np.mean(data)
+    data = data / np.std(data)
+    knots = knot_locator(data, k=10, degree=3, eqSpaced=False)
+    spline_list = dbspline(data, knots, degree=3)
+    pdgm = get_fz(data) ** 2
+    plt.Figure()
+    plt.plot(pdgm)
 
 

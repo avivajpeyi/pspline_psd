@@ -3,8 +3,9 @@ import numpy as np
 from pspline_psd.splines import BSpline, PSpline, knot_locator, dbspline
 from pspline_psd.utils import get_fz
 
-MAKE_PLOTS = True
+from scipy import interpolate
 
+MAKE_PLOTS = True
 
 
 def test_spline():
@@ -28,18 +29,36 @@ def test_spline():
         plt.show()
 
 
+def f1(x):
+    return 1 / (x ** 2 + 1) * np.cos(np.pi * x) + np.random.normal(0, 0.2, size=len(x))
 
 
-def test_knot_locator(helpers):
-    data_0 = helpers.load_data_0()
-    data = data_0['data']
-    # format data:
-    data = data - np.mean(data)
-    data = data / np.std(data)
-    knots = knot_locator(data, k=10, degree=3, eqSpaced=False)
-    spline_list = dbspline(data, knots, degree=3)
-    pdgm = get_fz(data) ** 2
-    plt.Figure()
-    plt.plot(pdgm)
+def test_b_spline_matrix(helpers):
+    x = np.linspace(-5, 5, 100)
+    y = f1(x)
+    knots = np.array([-5, 0, 5])
+    degree = 2
+    B_norm = dbspline(x, knots=knots, degree=degree)
+    basis = B_norm.toarray()
 
+    assert np.allclose(np.sum(basis, axis=1), 1)
 
+    if MAKE_PLOTS:
+        for i in range(len(basis.T)):
+            plt.plot(x, basis[:, i].ravel(), label=f'basis {i}', color=f"C{i}")
+
+        # sum all basis functions
+        plt.plot(x, np.sum(basis, axis=1), label='sum of basis functions')
+        # plot knots
+        plt.plot(np.array([-5, 0, 5]), np.zeros(3), 'x', color='k', label='knots')
+
+        tck = interpolate.splrep(x, y, s=0, k=degree)
+        xnew = np.linspace(-5, 5, 1000)
+        bspine_y = BSpline(*tck)(xnew)
+        plt.scatter(x, y, label='data', s=0.5, color='gray')
+        plt.plot(xnew, bspine_y, '--', color=f"k", label='BSpline', alpha=0.1)
+
+        plt.legend(loc='upper left')
+        plt.savefig(f'{helpers.OUTDIR}/test_b_spline_matrix.png')
+
+        plt.show()

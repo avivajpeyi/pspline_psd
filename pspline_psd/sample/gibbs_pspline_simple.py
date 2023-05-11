@@ -3,6 +3,8 @@ from scipy import sparse
 from scipy import stats
 from ..utils import get_fz
 from ..logger import logger
+from ..bayesian_utilities import llike, lpost, lprior, qpsd
+from ..splines import knot_locator, dbspline, PSpline, BSpline, get_penalty_matrix
 
 
 def gibbs_pspline_simple(
@@ -35,6 +37,7 @@ def gibbs_pspline_simple(
 
     # Empty lists for the MCMC samples
     n_samples = round(Ntotal / thin)
+    samples = np.zeros((n_samples, 3))
     tau = np.zeros(n_samples)
     phi = np.zeros(n_samples)
     delta = np.zeros(n_samples)
@@ -55,69 +58,32 @@ def gibbs_pspline_simple(
     V = np.matrix(v).T
 
 
-    #
-    # # create the design matrix
-    # if degree == 0:
-    #     X = np.ones((n, 1))
-    # else:
-    #     if eqSpacedKnots:
-    #         knots = np.arange(1, n + 1, n / (k + 1)).astype(int)
-    #     else:
-    #         knots = np.sort(np.random.choice(np.arange(1, n + 1), size=k, replace=False))
-    #     X = np.zeros((n, k + degree - 1))
-    #     for j in range(k + degree - 1):
-    #         X[:, j] = np.power(data, j)
-    #     for j in range(1, degree):
-    #         for i in range(k):
-    #             X[knots[i]:, j * k + i] = np.power(data[knots[i]:] - data[knots[i]], j)
-    #
-    # # create the difference matrix
-    # if diffMatrixOrder == 0:
-    #     D = np.eye(k + degree - 2)
-    # else:
-    #     D = np.zeros((k + degree - diffMatrixOrder - 1, k + degree - 2))
-    #     for i in range(k + degree - diffMatrixOrder - 1):
-    #         D[i, i:i + diffMatrixOrder + 1] = np.array(
-    #             [(-1) ** j * stats.comb(diffMatrixOrder, j) for j in range(diffMatrixOrder + 1)])
-    #
-    # # initialize the parameters
-    # beta = np.zeros(k + degree - 1)
-    # alpha = np.zeros(k + degree - 2)
-    # phi = 1
-    # delta = 1
-    #
-    # # create the sparse matrix for the Gibbs sampler
-    # A = sparse.csc_matrix(np.dot(X.T, X) / phi + D.T.dot(D) / delta)
-    #
-    # # run the Gibbs sampler
-    # samples = np.zeros((int((Ntotal - burnin) / thin), k + degree - 1))
-    # for i in range(Ntotal):
-    #     # sample beta
-    #     beta_mean = np.dot(X.T, data) / phi + np.dot(D.T, alpha) / delta
-    #     beta_cov = np.linalg.inv(A)
-    #     beta = np.random.multivariate_normal(beta_mean, beta_cov)
-    #
-    #     # sample alpha
-    #     alpha_mean = np.dot(D, beta)
-    #     alpha_cov = np.linalg.inv(D.T.dot(D) / delta + tau_alpha * np.eye(k + degree - 2))
-    #     alpha = np.random.multivariate_normal(alpha_mean, alpha_cov)
-    #
-    #     # sample phi
-    #     phi_shape = n / 2 + phi_alpha
-    #     phi_rate = 0.5 * np.sum(np.power(data - np.dot(X, beta), 2)) + phi_beta
-    #     phi = np.random.gamma(phi_shape, 1 / phi_rate)
-    #
-    #     # sample delta
-    #     delta_shape = (k + degree - 2) / 2 + delta_alpha
-    #     delta_rate = 0.5 * np.dot(alpha, alpha) + delta_beta
-    #     delta = np.random.gamma(delta_shape, 1 / delta_rate)
-    #
-    #     # save the sample
-    #     if i >= burnin and (i - burnin) % thin == 0:
-    #         samples[int((i - burnin) / thin), :] = beta
+    knots = knot_locator(data, k, eqSpacedKnots)
+    db_list = dbspline(data, knots, degree)
+
+    if eqSpacedKnots:
+        P = diff_matrix(k - 1, d=diffMatrixOrder)
+        P = P.T @ P
+    else:
+        P = get_penalty_matrix(db_list, diffMatrixOrder)
+        P = P / np.linalg.norm(P)
+    epsilon = 1e-6
+    P = P + epsilon * np.eye(P.shape[1]) # P^(-1)=Sigma (Covariance matrix)
+
+
+
 
     return samples
 
+
+
+def diff_matrix(k, d=2):
+    assert d < k, "d must be lower than k"
+    assert np.all(np.array([d, k])) > 0, "d, k must be +ive ints"
+    out = np.eye(k)
+    for i in range(d):
+        out = np.diff(out)
+    return out
 
 def _argument_preconditions(
     data: np.ndarray,
@@ -145,6 +111,7 @@ def _argument_preconditions(
     assert isinstance(eqSpacedKnots, bool), "eqSpacedKnots must be a boolean"
     assert degree in [0, 1, 2, 3, 4, 5], "degree must be between 0 and 5"
     assert diffMatrixOrder in [0, 1, 2], "diffMatrixOrder must be either 0, 1, or 2"
+    assert degree > diffMatrixOrder, "penalty order must be lower than the bspline density degree"
 
     n = len(data)
     is_even = n % 2 == 0

@@ -1,29 +1,6 @@
 import numpy as np
-import scipy.stats as stats
+from .whittle_utilities import psd_model
 
-import numpy as np
-from scipy.stats import gaussian_kde
-from .whittle_utilities import unrollPsd, densityMixture
-
-def qpsd(omega, k, v, degree, db_list):
-    # TODO: knots and degree are not used here -- is this an artefact from the 'B-Spline' PSD?
-    v = np.array(v)
-    expV = np.exp(v)
-
-    if np.any(np.isinf(expV)):
-        ls = np.logaddexp(0, v)
-        weight = np.exp(v - ls)
-    else:
-        ls = 1 + np.sum(expV)
-        weight = expV / ls
-
-    s = 1 - np.sum(weight)
-    weight = np.append(weight, 0 if s < 0 else s)
-    psd = gaussian_kde(db_list, weights=weight)(omega)
-    epsilon = 1e-20
-    psd = np.maximum(psd, epsilon)
-
-    return psd
 
 def lprior(k, v, tau, tau_alpha, tau_beta, phi, phi_alpha, phi_beta, delta, delta_alpha, delta_beta, P):
     # TODO: this is a mess... whats going on lol
@@ -34,28 +11,21 @@ def lprior(k, v, tau, tau_alpha, tau_beta, phi, phi_alpha, phi_beta, delta, delt
     return logprior
 
 
-def llike(omega, FZ, k, v, tau, pdgrm, degree, db_list):
+def llike(v, tau, pdgrm, db_list):
+    """Whittle log likelihood"""
     # TODO: Move to using bilby likelihood
-    n = len(FZ)
+    # TODO: the parameters to this function should be the sampling parameters, not the matrix itself!
 
-    if n % 2:
-        bFreq = 1
-    else:
-        bFreq = [1, n]
-
-    qq_psd = qpsd(omega, k, v, degree, db_list)
-    q = unrollPsd(qq_psd, n)
-
-    f = tau * q
-
-    # whittle log likelihood
-    llike = -np.sum(np.log(f[1:-1:2]) + pdgrm[1:-1:2] / (f[1:-1:2] * 2 * np.pi)) / 2
-    return llike
+    # todo: V should be computed in here
+    psd = psd_model(v, db_list, n=len(pdgrm))
+    f = tau * psd
+    integrand = np.log(f[1:-1:2]) + pdgrm[1:-1:2] / (f[1:-1:2] * 2 * np.pi)
+    return -np.sum(integrand) / 2
 
 
-def lpost(omega, FZ, k, v, tau, tau_alpha, tau_beta, phi, phi_alpha, phi_beta, delta, delta_alpha, delta_beta, pdgrm,
-          degree, db_list, P):
+def lpost(k, v, tau, tau_alpha, tau_beta, phi, phi_alpha, phi_beta, delta, delta_alpha, delta_beta, pdgrm,
+          db_list, P):
     logprior = lprior(k, v, tau, tau_alpha, tau_beta, phi, phi_alpha, phi_beta, delta, delta_alpha, delta_beta, P)
-    loglike = llike(omega, FZ, k, v, tau, pdgrm, degree, db_list)
+    loglike = llike(v, tau, pdgrm, db_list)
     logpost = logprior + loglike
     return logpost

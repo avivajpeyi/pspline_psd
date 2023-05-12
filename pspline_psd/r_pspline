@@ -280,9 +280,9 @@ gibbs_pspline_simple <- function(data,
 
       # Directly sample tau from conjugate Inverse-Gamma density
 
-      q.psd <- qpsd(omega, k, V.store, degree, db.list);
+      q.psd <- get_unormalised_psd(omega, k, V.store, degree, db.list);
 
-      q <- unrollPsd(q.psd, n)
+      q <- unroll_psd(q.psd, n)
 
       # Note: (n - 1) and (n - 2) here.  Remove the first and last terms for even and first for odd
       if (n %% 2) {  # Odd length series
@@ -331,7 +331,7 @@ gibbs_pspline_simple <- function(data,
 
   # Store PSDs
   for (isample in 1:length(keep)) {
-    q.psd <- qpsd(omega, k, V[, isample], degree, db.list);
+    q.psd <- get_unormalised_psd(omega, k, V[, isample], degree, db.list);
     fpsd.sample[, isample] <- tau[isample] * q.psd;
     log.fpsd.sample[, isample] <- logfuller(fpsd.sample[, isample]); # Create transformed version
   }
@@ -549,7 +549,7 @@ dbspline = function (x, knots, degree = 3)  {
 #' Compute unnormalised PSD using random mixture of B-splines
 #' @importFrom Rcpp evalCpp
 #' @keywords internal
-qpsd = function (omega, k, v, degree, db.list)
+get_unormalised_psd = function (omega, k, v, degree, db.list)
 {
 
   expV   <- exp(v)
@@ -557,7 +557,7 @@ qpsd = function (omega, k, v, degree, db.list)
   weight <- expV / (1+sum(expV));
   weight <- c(weight, 1-sum(weight));
 
-  psd <- densityMixture(weight, db.list)
+  psd <- density_mixture(weight, db.list)
   epsilon <- 1e-20
   psd <- pmax(psd, epsilon)
   #psd <- psd[-c(1, length(psd))]
@@ -565,10 +565,10 @@ qpsd = function (omega, k, v, degree, db.list)
 }
 
 #' This function can deal with Inf values when taking exponential of weigths,
-#' unlike the function "qpsd" defined above
+#' unlike the function "get_unormalised_psd" defined above
 #' @importFrom Rcpp evalCpp
 #' @keywords internal
-qpsd = function (omega, k, v, degree, db.list)
+get_unormalised_psd = function (omega, k, v, degree, db.list)
 {
   v      <- as.numeric(v);
   expV   <- exp(v);
@@ -592,7 +592,7 @@ qpsd = function (omega, k, v, degree, db.list)
   s       <- 1-sum(weight);
   weight  <- c(weight, ifelse(s<0, 0, s));
 
-  psd     <- densityMixture(weight, db.list);
+  psd     <- density_mixture(weight, db.list);
   epsilon <- 1e-20;
   psd     <- pmax(psd, epsilon);
   #psd     <- psd[-c(1, length(psd))];
@@ -634,9 +634,9 @@ llike = function (omega, FZ, k, v, tau, pdgrm, degree, db.list)
   }
 
   # Un-normalised PSD (defined on [0, 1])
-  qq.psd <- qpsd(omega, k, v, degree, db.list);
+  qq.psd <- get_unormalised_psd(omega, k, v, degree, db.list);
 
-  q = unrollPsd(qq.psd, n); # Unrolls the unnormalised PSD to length n
+  q = unroll_psd(qq.psd, n); # Unrolls the unnormalised PSD to length n
 
   # Normalised PSD (defined on [0, pi])
   f <- tau * q;

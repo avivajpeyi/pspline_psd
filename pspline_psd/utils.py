@@ -47,13 +47,20 @@ def get_fz(x: np.ndarray) -> np.ndarray:
     return FZ / sqrtn
 
 
-def periodogram(x: np.ndarray):
+def get_periodogram(fz: np.ndarray):
     """
-    Function computes the periodogram of x
-    (Assumes x is mean-centered
+    Function computes the periodogram of fz
+    (Assumes fz is already rescaled)
     """
-    pdgm = abs(get_fz(x)) ** 2 / (2 * np.pi * len(x))
-    return pdgm * np.std(x) ** 2
+    return abs(fz) ** 2 / (2 * np.pi * len(fz))
+
+# def periodogram(x: np.ndarray):
+#     """
+#     Function computes the periodogram of x
+#     (Assumes x is mean-centered
+#     """
+#     pdgm = abs(get_fz(x)) ** 2 / (2 * np.pi * len(x))
+#     return pdgm * np.std(x) ** 2
 
 #
 # def uniformmax(sample):

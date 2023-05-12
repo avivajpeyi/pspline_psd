@@ -14,6 +14,5 @@ def test_fft(helpers):
     expected_fz = data_obj['anSpecif']['FZ']
     py_fz = get_fz(ar4_data)
     fig = helpers.plot_comparison(expected_fz, py_fz, "FZ")
-    fig.show()
-
+    # plt.show()
     assert np.allclose(expected_fz, py_fz, atol=1e-5)

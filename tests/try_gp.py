@@ -13,7 +13,7 @@ def test_gp(helpers):
 
 
     kernel = 1 * RBF(length_scale=1.0, length_scale_bounds=(1e-2, 1e2))
-    gaussian_process = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9, alpha=0.01)
+    gaussian_process = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=9, α=0.01)
     gaussian_process.fit(idx.reshape(-1, 1), periodogram)
 
     x = np.linspace(min(idx), max(idx), 1000).reshape(-1, 1)
@@ -23,7 +23,7 @@ def test_gp(helpers):
         x.ravel(),
         mean_prediction - 1.96 * std_prediction,
         mean_prediction + 1.96 * std_prediction,
-        alpha=0.5,
+        α=0.5,
         label=r"95% confidence interval",
         color = 'C2'
     )

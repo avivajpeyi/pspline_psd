@@ -15,20 +15,20 @@ def test_llike(helpers):
 
     degree = 3
     k = 32
-    tau, delta, phi, fz, periodogram, V, omega = _get_initial_values(data, k)
+    τ, δ, φ, fz, periodogram, V, omega = _get_initial_values(data, k)
     fz = get_fz(dataset['data'])
     periodogram = get_periodogram(fz)
     knots = knot_locator(data, k=k, degree=degree, eqSpaced=False)
     db_list = dbspline(data, knots, degree=degree)
     n = len(periodogram)
-    llike_val = llike(v=V, tau=tau, pdgrm=periodogram, db_list=db_list)
+    llike_val = llike(v=V, τ=τ, pdgrm=periodogram, db_list=db_list)
     assert not np.isnan(llike_val)
     psd = psd_model(V,  db_list, n)
 
     highest_ll_idx = np.argmax(dataset['ll.trace'])
     best_V = dataset['V'][:, highest_ll_idx]
-    best_tau = dataset['tau'][highest_ll_idx]
-    best_llike_val = llike(v=best_V, tau=best_tau, pdgrm=periodogram, db_list=db_list)
+    best_τ = dataset['τ'][highest_ll_idx]
+    best_llike_val = llike(v=best_V, τ=best_τ, pdgrm=periodogram, db_list=db_list)
     assert llike_val < best_llike_val
     best_psd = psd_model(best_V, db_list, n)
 
@@ -41,14 +41,14 @@ def test_llike(helpers):
 def plot_psd(periodogram, psds, labels, db_list):
     plt.plot(periodogram / np.sum(periodogram), label='periodogram')
     for psd, l in zip(psds, labels):
-        plt.plot(psd / np.sum(psd), label=l, alpha=0.5)
+        plt.plot(psd / np.sum(psd), label=l, α=0.5)
     ylims = plt.gca().get_ylim()
     basis = db_list.toarray()
     net_val = np.sum(basis)
 
     basis = basis / net_val
     for idx, bi in enumerate(basis.T):
-        kwgs = dict(color='gray', alpha=0.01)
+        kwgs = dict(color='gray', α=0.01)
         if idx == 0:
             kwgs['label'] = 'basis'
         plt.plot(bi / np.sum(bi), **kwgs)

@@ -1,17 +1,18 @@
-import numpy as np
-from pspline_psd.models import ar1
-import matplotlib.pyplot as plt
+import os
+
 from pspline_psd.sample.gibbs_pspline_simple import gibbs_pspline_simple
 
-def test_simple_example():
-    np.random.seed(0)  # for reproducibility
-    data = ar1(rho=0.9, sigma=1, y0=0, n=100)
-    data = data - np.mean(data)
 
-    samples = gibbs_pspline_simple(
+def test_simple_example(helpers):
+    data = helpers.load_data_0()['data']
+    fn = f"{helpers.OUTDIR}/sample_metadata.png"
+    gibbs_pspline_simple(
         data=data,
         Ntotal=1000,
-        burnin=100,
-        degree=3
+        burnin=50,
+        degree=3,
+        eqSpacedKnots=True,
+        compute_psds=True,
+        metadata_plotfn=fn
     )
-    print(samples)
+    assert os.path.exists(fn)

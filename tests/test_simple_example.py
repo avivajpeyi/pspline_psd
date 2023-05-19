@@ -5,6 +5,7 @@ from pspline_psd.sample.gibbs_pspline_simple import gibbs_pspline_simple
 
 def test_simple_example(helpers):
     data = helpers.load_data_0()['data']
+
     fn = f"{helpers.OUTDIR}/sample_metadata.png"
     gibbs_pspline_simple(
         data=data,

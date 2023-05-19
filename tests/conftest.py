@@ -1,20 +1,22 @@
 """Pytest setup"""
-import os.path
-
-import pytest
-import numpy as np
-import rpy2.robjects as robjects
-from pathlib import Path
 import glob
+import os.path
+from collections import namedtuple
+from pathlib import Path
 
 import matplotlib.pyplot as plt
-
-from collections import namedtuple
+import numpy as np
+import pytest
 
 DIR = Path(__file__).parent
 DATA_DIR = DIR / 'data'
 DATA_PATHS = dict(
     data_0=DATA_DIR / 'data_0.Rdata',
+    raw_data=DATA_DIR / 'data.txt',
+    db_list=DATA_DIR / 'db_list.txt',
+    tau=DATA_DIR / 'tau_trace.txt',
+    v=DATA_DIR / 'v_trace.txt',
+    ll=DATA_DIR / 'll_trace.txt',
 )
 
 
@@ -24,6 +26,8 @@ def pytest_configure(config):
 
 
 def load_rdata(path):
+    import rpy2.robjects as robjects
+
     robjects.r['load'](str(path))
     d = dict(data=np.array(robjects.r['data']))
     d.update(dict(**r_obj_as_dict(robjects.r['mcmc'])))
@@ -31,6 +35,8 @@ def load_rdata(path):
 
 
 def r_obj_as_dict(vector):
+    import rpy2.robjects as robjects
+
     """Convert an RPy2 ListVector to a Python dict"""
     result = {}
     r2np_types = [robjects.FloatVector, robjects.IntVector, robjects.Matrix, robjects.vectors.FloatMatrix]
@@ -55,11 +61,31 @@ def mkdir(path):
 
 class Helpers:
     SAVE_PLOTS = True
-    OUTDIR = mkdir(os.path.join(DIR,'test_output'))
+    OUTDIR = mkdir(os.path.join(DIR, 'test_output'))
+
+    @staticmethod
+    def load_raw_data():
+        return np.loadtxt(DATA_PATHS['raw_data'])
 
     @staticmethod
     def load_data_0():
         return load_rdata(DATA_PATHS['data_0'])
+
+    @staticmethod
+    def load_db_list():
+        return np.loadtxt(DATA_PATHS['db_list'])
+
+    @staticmethod
+    def load_v():
+        return np.loadtxt(DATA_PATHS['v'])
+
+    @staticmethod
+    def load_ll():
+        return np.loadtxt(DATA_PATHS['ll'])
+
+    @staticmethod
+    def load_tau():
+        return np.loadtxt(DATA_PATHS['tau'])
 
     @staticmethod
     def plot_comparison(expected, actual, label):
@@ -74,8 +100,13 @@ class Helpers:
         ax0.legend()
         try:
             ax1.errorbar(
-                [i for i in range(len(expected))], [0] * len(expected), yerr=abs(expected - actual), fmt=".",
-                ms=0.5, color='k')
+                [i for i in range(len(expected))],
+                [0] * len(expected),
+                yerr=abs(expected - actual),
+                fmt=".",
+                ms=0.5,
+                color='k',
+            )
         except Exception as e:
             print(e)
         ax1.set_xlabel('index')

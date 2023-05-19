@@ -1,8 +1,8 @@
 import numpy as np
+from bilby.core.prior import Gamma, PriorDict
 from numpy import dot
-from .whittle_utilities import psd_model
 
-from bilby.core.prior import PriorDict, Gamma
+from .whittle_utilities import psd_model
 
 
 def _vPv(v, P):
@@ -66,6 +66,9 @@ def sample_φδτ(k, v, τ, τα, τβ, φ, φα, φβ, δ, δα, δβ, periodog
     return φ, δ, τ
 
 
+# devtools::install_github("pmat747/psplinePsd")
+
+
 def llike(v, τ, pdgrm, db_list):
     """Whittle log likelihood"""
     # TODO: Move to using bilby likelihood
@@ -94,8 +97,5 @@ def lpost(k, v, τ, τα, τβ, φ, φα, φβ, δ, δα, δβ, pdgrm, db_list, 
     logprior = lprior(k, v, τ, τα, τβ, φ, φα, φβ, δ, δα, δβ, P)
     loglike = llike(v, τ, pdgrm, db_list)
     logpost = logprior + loglike
-    assert (
-        np.isfinite(logpost),
-        f"logpost is not finite: lnpri{logprior}, lnlike{loglike}, lnpost{logpost}"
-    )
+    assert (np.isfinite(logpost), f"logpost is not finite: lnpri{logprior}, lnlike{loglike}, lnpost{logpost}")
     return logpost

@@ -27,6 +27,8 @@ def get_unormalised_psd(v: np.ndarray, db_list: np.ndarray):
     v = np.array(v)
     expV = np.exp(v)
 
+    # converting to weights
+    # Eq near 4, page 3.1
     if np.any(np.isinf(expV)):
         ls = np.logaddexp(0, v)
         weight = np.exp(v - ls)
@@ -35,12 +37,13 @@ def get_unormalised_psd(v: np.ndarray, db_list: np.ndarray):
         weight = expV / ls
 
     s = 1 - np.sum(weight)
+    # adding last element to weight
     weight = np.append(weight, 0 if s < 0 else s).ravel()
 
-    psd = density_mixture(densities=db_list.toarray().T, weights=weight)
+    psd = density_mixture(densities=db_list.T, weights=weight)
     epsilon = 1e-20
+    # element wise maximum value bewteen psd and epsilon
     psd = np.maximum(psd, epsilon)
-
     return psd
 
 
@@ -48,7 +51,8 @@ def density_mixture(weights: np.ndarray, densities: np.ndarray) -> np.ndarray:
     """build a density mixture, given mixture weights and densities"""
     assert (
         len(weights) == densities.shape[0],
-        f"weights ({weights.shape}) and densities ({densities.shape}) must have the same length")
+        f"weights ({weights.shape}) and densities ({densities.shape}) must have the same length",
+    )
     n = densities.shape[1]
     res = np.zeros(n)
     for i in range(len(weights)):

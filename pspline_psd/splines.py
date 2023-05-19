@@ -1,11 +1,12 @@
-from scipy.interpolate import BSpline
 import numpy as np
-from scipy.interpolate import interp1d
+from scipy.interpolate import BSpline, interp1d
+
 from .utils import get_fz
 
 
 class PSpline(BSpline):
     """Penalized B-spline."""
+
     pass
 
 
@@ -36,8 +37,9 @@ def knot_locator(data: np.ndarray, k: int, degree: int, eqSpaced: bool = False):
 
     df = interp1d(np.linspace(0, 1, num=n), cumf, kind='linear', fill_value=(0, 1))
 
-    invDf = interp1d(df(np.linspace(0, 1, num=n)), np.linspace(0, 1, num=n), kind='linear', fill_value=(0, 1),
-                     bounds_error=False)
+    invDf = interp1d(
+        df(np.linspace(0, 1, num=n)), np.linspace(0, 1, num=n), kind='linear', fill_value=(0, 1), bounds_error=False
+    )
 
     # knots based on periodogram peaks
     knots = invDf(np.linspace(0, 1, num=k - degree + 1))
@@ -45,7 +47,7 @@ def knot_locator(data: np.ndarray, k: int, degree: int, eqSpaced: bool = False):
     return knots
 
 
-def dbspline(x: np.ndarray, knots: np.ndarray, degree=3):
+def dbspline(x: np.ndarray, knots: np.ndarray, degree=3, normalize=True):
     """Generate a B-spline density basis of any degree
 
     Returns:
@@ -61,22 +63,22 @@ def dbspline(x: np.ndarray, knots: np.ndarray, degree=3):
     assert n_knots == degree * 2 + len(knots)
 
     # TODO: the R version has degree + 1 here... why?
-    B = BSpline.design_matrix(x, knots_with_boundary, degree, extrapolate=True)
+    B = BSpline.design_matrix(x, knots_with_boundary, degree)
 
-    # if normalize:
-    #     # normalize the basis functions
-    #     mid_to_end_knots = knots_with_boundary[degree + 1:]
-    #     start_to_mid_knots = knots_with_boundary[:(n_knots - degree - 1)]
-    #     bs_int = (mid_to_end_knots - start_to_mid_knots) / (degree + 1)
-    #     bs_int[bs_int == 0] = np.inf
-    #     B = B / bs_int
+    if normalize:
+        # normalize the basis functions
+        mid_to_end_knots = knots_with_boundary[degree + 1 :]
+        start_to_mid_knots = knots_with_boundary[: (n_knots - degree - 1)]
+        bs_int = (mid_to_end_knots - start_to_mid_knots) / (degree + 1)
+        bs_int[bs_int == 0] = np.inf
+        B = B / bs_int
 
     assert B.shape == (len(x), len(knots) + degree - 1)
-    assert np.allclose(np.sum(B, axis=1), 1), 'Basis functions do not sum to 1'
+    # assert np.allclose(np.sum(B, axis=1), 1), 'Basis functions do not sum to 1'
     return B
 
 
-def get_penalty_matrix(basis: np.ndarray, Lfdobj:int) -> np.ndarray:
+def get_penalty_matrix(basis: np.ndarray, Lfdobj: int) -> np.ndarray:
     """Computes the penalty matrix for a B-spline basis of degree `degree` and `k` knots.
 
     Returns

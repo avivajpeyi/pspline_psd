@@ -1,6 +1,7 @@
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.fft import fft
-import matplotlib.pyplot as plt
+
 
 def get_fz(x: np.ndarray) -> np.ndarray:
     """
@@ -37,12 +38,14 @@ def get_fz(x: np.ndarray) -> np.ndarray:
 
     if is_even:
         N = (n - 1) // 2
-        FZ[1:2 * N + 1:2] = sqrt2 * np.real(fourier[1:N + 1])
-        FZ[2:2 * N + 2:2] = sqrt2 * np.imag(fourier[1:N + 1])
+        FZ[1 : 2 * N + 1 : 2] = sqrt2 * np.real(fourier[1 : N + 1])
+        FZ[2 : 2 * N + 2 : 2] = sqrt2 * np.imag(fourier[1 : N + 1])
     else:
         FZ[n - 1] = np.real(fourier[n // 2])
-        FZ[1:n // 2] = sqrt2 * np.real(fourier[1:n // 2])
-        FZ[2:n // 2 + 1] = sqrt2 * np.imag(fourier[1:n // 2])
+        FZ[1 : n // 2] = sqrt2 * np.real(fourier[1 : n // 2])
+        FZ[2 : n // 2 + 1] = sqrt2 * np.imag(fourier[1 : n // 2])
+
+    FZ[-1] = FZ[-2]
 
     return FZ / sqrtn
 
@@ -53,6 +56,7 @@ def get_periodogram(fz: np.ndarray):
     (Assumes fz is already rescaled)
     """
     return abs(fz) ** 2 / (2 * np.pi * len(fz))
+
 
 # def periodogram(x: np.ndarray):
 #     """

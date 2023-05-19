@@ -1,25 +1,27 @@
-import numpy as np
-from scipy import sparse
 import random
-from scipy.fft import fft
 import time
-from sklearn.utils import resample
-from scipy import stats
-from ..utils import get_fz, get_periodogram
-from ..logger import logger
-from ..bayesian_utilities import llike, lpost, lprior, sample_φδτ
-from ..splines import knot_locator, dbspline, PSpline, BSpline, get_penalty_matrix
-from tqdm.auto import tqdm, trange
-from bilby.core.prior import PriorDict, Gamma
+
 import matplotlib.pyplot as plt
+import numpy as np
+from bilby.core.prior import Gamma, PriorDict
 from matplotlib.gridspec import GridSpec
+from scipy import sparse, stats
+from scipy.fft import fft
+from sklearn.utils import resample
+from tqdm.auto import tqdm, trange
+
+from ..bayesian_utilities import llike, lpost, lprior, sample_φδτ
 from ..bayesian_utilities.whittle_utilities import psd_model
+from ..logger import logger
+from ..splines import BSpline, PSpline, dbspline, get_penalty_matrix, knot_locator
+from ..utils import get_fz, get_periodogram
 
 
 def gibbs_pspline_simple(
     data: np.ndarray,
     Ntotal: int,
-    burnin: int, thin: int = 1,
+    burnin: int,
+    thin: int = 1,
     τα: float = 0.001,
     τβ: float = 0.001,
     φα: float = 1,
@@ -104,11 +106,11 @@ def gibbs_pspline_simple(
     accep_frac_list = accep_frac_list[burn:]
 
     psd_quants = generate_psd_posterior(omega, db_list, samples[:, 2], samples_V)
-    psd_quants *= data_scale ** 2
+    psd_quants *= data_scale**2
     if metadata_plotfn:
         n, newn = len(data), len(omega)
         periodogram = np.abs(fft(data) ** 2 / (2 * np.pi * n))[0:newn]
-        periodogram *= data_scale ** 2
+        periodogram *= data_scale**2
         _plot_metadata(samples, accep_frac_list, psd_quants, periodogram, db_list, metadata_plotfn)
 
     return samples
@@ -170,13 +172,7 @@ def diff_matrix(k, d=2):
     return out.T
 
 
-def _get_initial_values(data, k,
-                        φα: float = 1,
-                        φβ: float = 1,
-                        δα: float = 1e-04,
-                        δβ: float = 1e-04,
-                        **kwargs
-                        ):
+def _get_initial_values(data, k, φα: float = 1, φβ: float = 1, δα: float = 1e-04, δβ: float = 1e-04, **kwargs):
     τ = np.var(data) / (2 * np.pi)
     δ = δα / δβ
     φ = φα / (φβ * δ)
@@ -204,7 +200,11 @@ def _get_initial_spline_data(data, k, degree, omega, diffMatrixOrder, eqSpacedKn
 
 def _generate_initial_weights(periodogram, k):
     w = periodogram / np.sum(periodogram)
-    w = w[np.round(np.linspace(0, len(w) - 1, k)).astype(int)]  # TODO: why are we truncating to len k?
+    # TODO keep k equidistant points
+    idx = np.linspace(0, len(w) - 1, k).astype(int)
+    w = w[idx]
+
+    # TODO: why are we truncating to len k?
     assert len(w) == k
     w[w == 0] = 1e-50  # TODO: why are we doing this?
     w = w / np.sum(w)
@@ -225,8 +225,7 @@ def _format_data(data):
     data = data / np.std(data)
     if not np.allclose(data, data_original):
         logger.warning(
-            "data was not mean-centered and/or scaled to unit variance. "
-            "This has been done automatically."
+            "data was not mean-centered and/or scaled to unit variance. " "This has been done automatically."
         )
     return data
 
@@ -234,7 +233,8 @@ def _format_data(data):
 def _argument_preconditions(
     data: np.ndarray,
     Ntotal: int,
-    burnin: int, thin: int = 1,
+    burnin: int,
+    thin: int = 1,
     τα: float = 0.001,
     τβ: float = 0.001,
     φα: float = 1,
@@ -246,7 +246,7 @@ def _argument_preconditions(
     degree: int = 3,
     diffMatrixOrder: int = 2,
     metadata_plotfn: str = None,
-    **kwargs
+    **kwargs,
 ):
     assert data.shape[0] > 2, "data must be a non-empty np.array"
     assert burnin < Ntotal, "burnin must be less than Ntotal"
@@ -290,7 +290,7 @@ def _plot_metadata(samples, counts, psd_quants, periodogram, db_list, metadata_p
     ax.set_ylabel("Frac accepted")
     ax.set_xlabel("Iteration")
     ax = fig.add_subplot(gs[3, 1])
-    for i, db in enumerate(db_list.toarray().T):
+    for i, db in enumerate(db_list.T):
         ax.plot(db, color=f'C{i}', alpha=0.3)
     ax.set_yticks([])
     ax.set_xticks([])

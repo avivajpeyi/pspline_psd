@@ -5,26 +5,23 @@ from .whittle_utilities import psd_model
 from bilby.core.prior import PriorDict, Gamma
 
 
+def _vPv(v, P):
+    return dot(dot(v.T, P), v)
+
+
 def lprior(k, v, τ, τα, τβ, φ, φα, φβ, δ, δα, δβ, P):
-    # TODO: this is a mess... whats going on lol
     # TODO: Move to using bilby priors
 
-    vTPv = dot(dot(v.T, P), v)
+    vTPv = _vPv(v, P)
     logφ = np.log(φ)
     logδ = np.log(δ)
     logτ = np.log(τ)
 
-    log_prior = (
-        + (k - 1) * logφ / 2
-        - φ * vTPv / 2
-        + φα * logδ
-        + (φα - 1) * logφ
-        - φβ * δ * φ
-        + (δα - 1) * logδ
-        - δβ * δ
-        - (τα + 1) * logτ
-        - τβ / τ
-    )
+    lnpri_weights = (k - 1) * logφ * 0.5 - φ * vTPv * 0.5
+    lnpri_φ = φα * logδ + (φα - 1) * logφ - φβ * δ * φ
+    lnpri_δ = (δα - 1) * logδ - δβ * δ
+    lnpri_τ = -(τα + 1) * logτ - τβ / τ
+    log_prior = lnpri_weights + lnpri_φ + lnpri_δ + lnpri_τ
     return log_prior
 
 
@@ -88,12 +85,17 @@ def llike(v, τ, pdgrm, db_list):
         pdgrm = pdgrm[1:-1]
 
     integrand = np.log(f) + pdgrm / (f * 2 * np.pi)
-    return -np.sum(integrand) / 2
+    lnlike = -np.sum(integrand) / 2
+    assert np.isfinite(lnlike), f"lnlike is not finite: {lnlike}"
+    return lnlike
 
 
 def lpost(k, v, τ, τα, τβ, φ, φα, φβ, δ, δα, δβ, pdgrm, db_list, P):
     logprior = lprior(k, v, τ, τα, τβ, φ, φα, φβ, δ, δα, δβ, P)
     loglike = llike(v, τ, pdgrm, db_list)
     logpost = logprior + loglike
-    assert np.isfinite(logpost), f"logpost is not finite: lnpri{ln}, lnlike{}, lnpost{}"
+    assert (
+        np.isfinite(logpost),
+        f"logpost is not finite: lnpri{logprior}, lnlike{loglike}, lnpost{logpost}"
+    )
     return logpost

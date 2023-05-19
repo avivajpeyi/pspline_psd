@@ -12,7 +12,7 @@ def test_periodogram(helpers):
     """
     data_obj = helpers.load_data_0()
     ar4_data = data_obj['data']
-    expected_pdgm = data_obj['pdgrm'] ## THIS IS PDGM SCALED FOR THE PSD -- NOT THE PDGM
+    expected_pdgm = data_obj['pdgrm'] ## THIS IS PDGM GENERATED AT THE END
     fz = get_fz(ar4_data)
     py_pdgm = get_periodogram(fz)
     # only keep every 2nd value

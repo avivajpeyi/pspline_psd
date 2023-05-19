@@ -15,7 +15,7 @@ data = data - mean(data)
 data = data / stats::sd(data)
 
 # Run MCMC (may take some time)
-mcmc = gibbs_pspline(data, burnin=100, Ntotal=1000, degree = 3)
+mcmc = gibbs_pspline(data, burnin=100, Ntotal=1000, degree = 3, eqSpacedKnots=TRUE)
 
 # Plot result
 plot(mcmc)

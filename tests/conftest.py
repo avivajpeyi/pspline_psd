@@ -69,8 +69,8 @@ class Helpers:
             gridspec_kw={"height_ratios": [3, 1], "wspace": 0, "hspace": 0},
             sharex=True,
         )
-        ax0.plot(expected, label='True', color="C0", α=0.5)
-        ax0.plot(actual, label='computed', color="C1", α=0.5, ls='--')
+        ax0.plot(expected, label='True', color="C0")
+        ax0.plot(actual, label='computed', color="C1", ls='--')
         ax0.legend()
         try:
             ax1.errorbar(
@@ -79,7 +79,7 @@ class Helpers:
         except Exception as e:
             print(e)
         ax1.set_xlabel('index')
-        ax1.set_ylabel(r"$\δ$" + label)
+        ax1.set_ylabel(r"$\delta$" + label)
         ax0.set_ylabel(label)
         fig.tight_layout()
         if Helpers.SAVE_PLOTS:

@@ -4,7 +4,8 @@ import numpy as np
 
 def psd_model(v: np.ndarray, db_list: np.ndarray, n: int):
     unorm_psd = get_unormalised_psd(v, db_list)
-    return unroll_psd(unorm_psd, n)
+    unrolled_psd = unroll_psd(unorm_psd, n)
+    return unrolled_psd
 
 
 def get_unormalised_psd(v: np.ndarray, db_list: np.ndarray):
@@ -45,7 +46,9 @@ def get_unormalised_psd(v: np.ndarray, db_list: np.ndarray):
 
 def density_mixture(weights: np.ndarray, densities: np.ndarray) -> np.ndarray:
     """build a density mixture, given mixture weights and densities"""
-    assert len(weights) == densities.shape[0], "weights and densities must have the same length"
+    assert (
+        len(weights) == densities.shape[0],
+        f"weights ({weights.shape}) and densities ({densities.shape}) must have the same length")
     n = densities.shape[1]
     res = np.zeros(n)
     for i in range(len(weights)):
@@ -57,14 +60,13 @@ def density_mixture(weights: np.ndarray, densities: np.ndarray) -> np.ndarray:
 def unroll_psd(qPsd, n):
     """unroll PSD from qPsd to psd of length n"""
     q = np.zeros(n)
-    odd_len = n % 2 == 1
     q[0] = qPsd[0]
     N = (n - 1) // 2
+    assert len(qPsd) >= N + 1, f"qPsd ({len(qPsd)}) must have length >= {N + 1}"
     for i in range(1, N + 1):
         j = 2 * i - 1
         q[j] = qPsd[i]
         q[j + 1] = qPsd[i]
 
-    if odd_len:
-        q[-1] = qPsd[-1]
+    q[-1] = qPsd[-1]
     return q

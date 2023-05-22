@@ -9,12 +9,7 @@ from pspline_psd.bayesian_utilities.bayesian_functions import llike
 from scipy.fft import fft
 import matplotlib.pyplot as plt
 
-try:
-    plt.style.use(
-        'https://gist.githubusercontent.com/avivajpeyi/4d9839b1ceb7d3651cbb469bc6b0d69b/raw/4ee4a870126653d542572372ff3eee4e89abcab0/publication.mplstyle')
-except Exception:
-    plt.style.use('seaborn-whitegrid')
-
+plt.style.use('default')
 # import gridspec from matplotlib
 from matplotlib import gridspec
 
@@ -124,7 +119,7 @@ def __make_comparison_plot(r_data, py_data):
 
 @pytest.mark.skipif(rpy2 is None, reason="rpy2 required for this test")
 def test_mcmc_comparison(helpers):
-    plt.rcParams['font.family'] = 'sans-serif'
+
     nsteps = 2000
     data = helpers.load_raw_data()
     r_psd, r_psd_p05, r_psd_p95 = __r_mcmc(data, nsteps)
@@ -132,7 +127,10 @@ def test_mcmc_comparison(helpers):
     n, newn = len(data), len(py_psd)
     periodogram = np.abs(np.power(fft(data), 2) / (2 * np.pi * n))[0:newn]
     psd_x = np.linspace(0, 3.14, newn)
-    fig = plt.plot(figsize=(8, 4))
+    plt.style.use(
+        'https://gist.githubusercontent.com/avivajpeyi/4d9839b1ceb7d3651cbb469bc6b0d69b/raw/4ee4a870126653d542572372ff3eee4e89abcab0/publication.mplstyle')
+    plt.rcParams['font.family'] = 'sans-serif'
+    plt.plot(figsize=(8, 4))
     plt.scatter(psd_x, periodogram, color='k', label='Data', s=0.75)
     plt.plot(psd_x, py_psd, color='tab:orange', alpha=0.5, label='Python')
     plt.fill_between(psd_x, py_psd_p05, py_psd_p95, color='tab:orange', alpha=0.2, linewidth=0.0)
@@ -148,7 +146,7 @@ def test_mcmc_comparison(helpers):
     plt.tight_layout()
     # turn off minor ticks
     plt.minorticks_off()
-    fig.savefig(f'{helpers.OUTDIR}/psd_comparison.png', dpi=300)
+    plt.savefig(f'{helpers.OUTDIR}/psd_comparison.png', dpi=300)
 
 
 def __r_mcmc(data, nsteps=200):
@@ -156,7 +154,7 @@ def __r_mcmc(data, nsteps=200):
     np_cv_rules = default_converter + numpy2ri.converter
 
     with np_cv_rules.context():
-        mcmc = r_pspline.gibbs_pspline(data, burnin=100, Ntotal=nsteps, degree=3, eqSpacedKnots=True)
+        mcmc = r_pspline.gibbs_pspline(data, burnin=300, Ntotal=nsteps, degree=3, eqSpacedKnots=True)
     return mcmc['psd.median'], mcmc['psd.p05'], mcmc['psd.p95']
 
 
@@ -164,7 +162,7 @@ from pspline_psd.sample.gibbs_pspline_simple import gibbs_pspline_simple
 
 
 def __py_mcmc(data, nsteps=200):
-    mcmc = gibbs_pspline_simple(data, burnin=100, Ntotal=nsteps, degree=3, eqSpacedKnots=True,
+    mcmc = gibbs_pspline_simple(data, burnin=300, Ntotal=nsteps, degree=3, eqSpacedKnots=True,
                                 metadata_plotfn="py_mcmc.png")
     psd_quants = mcmc['psd_quants']
     return psd_quants[0, :], psd_quants[1, :], psd_quants[2, :]

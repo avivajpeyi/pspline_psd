@@ -56,6 +56,9 @@ celerite = "^0.4.2"
 celerite2 = "^0.2.1"
 scikit-learn = "^1.2.2"
 bilby = "^2.1.1"
+notebook = "^6.5.4"
+jupyter = "^1.0.0"
+jupytext = "^1.14.5"
 
 [tool.poetry.extras]
 test = [

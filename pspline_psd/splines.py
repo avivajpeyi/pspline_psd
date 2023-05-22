@@ -26,10 +26,10 @@ def knot_locator(data: np.ndarray, k: int, degree: int, eqSpaced: bool = False):
 
     data = data - np.mean(data)
     FZ = get_fz(data)
-    pdgrm = abs(FZ) ** 2
+    pdgrm = np.power(np.abs(FZ), 2)
 
     aux = np.sqrt(pdgrm)
-    dens = abs(aux - np.mean(aux)) / np.std(aux)
+    dens = np.abs(aux - np.mean(aux)) / np.std(aux)
     n = len(pdgrm)
 
     dens = dens / np.sum(dens)

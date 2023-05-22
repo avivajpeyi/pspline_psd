@@ -3,6 +3,7 @@ import glob
 import os.path
 from collections import namedtuple
 from pathlib import Path
+from typing import Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -116,6 +117,10 @@ class Helpers:
         if Helpers.SAVE_PLOTS:
             fig.savefig(os.path.join(Helpers.OUTDIR, f'{label}.png'), dpi=300)
         return fig
+
+
+
+
 
 
 @pytest.fixture

@@ -55,7 +55,7 @@ def get_periodogram(fz: np.ndarray):
     Function computes the periodogram of fz
     (Assumes fz is already rescaled)
     """
-    return abs(fz) ** 2 / (2 * np.pi * len(fz))
+    return np.power(np.abs(fz), 2)
 
 
 # def periodogram(x: np.ndarray):

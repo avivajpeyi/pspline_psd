@@ -64,15 +64,9 @@ def gibbs_pspline_simple(
     ll_trace = np.zeros(Ntotal)  # log likelihood trace
     accep_frac_list = np.zeros(Ntotal)  # accept_frac of accepted proposals
     sigma = 1  # proposal distribution variance for weights
-    accept_frac = 0.4  # starting value for accept_frac of accepted proposals #TODO: why 0.4?
-    k_1 = k - 1
+    accept_frac = 0.4  # starting value for accept_frac of accepted proposals
     Ntot_1 = Ntotal - 1
     φ, τ, δ, V = φ0, τ0, δ0, V0
-
-    # Random values # TODO: why do i pre-generate these?
-    # rand_size = Ntot_1 * k_1
-    # Zs = np.random.normal(size=rand_size).reshape(Ntot_1, k_1)
-    # Us = np.log(np.random.uniform(size=rand_size)).reshape(Ntot_1, k_1)
 
     ptime = time.process_time()
     for j in trange(n_samples, desc='MCMC sampling'):
@@ -106,14 +100,15 @@ def gibbs_pspline_simple(
     accep_frac_list = accep_frac_list[burn:]
 
     psd_quants = generate_psd_posterior(omega, db_list, samples[:, 2], samples_V)
-    psd_quants *= data_scale**2
+    psd_quants = psd_quants * np.power(data_scale, 2)
     if metadata_plotfn:
         n, newn = len(data), len(omega)
-        periodogram = np.abs(fft(data) ** 2 / (2 * np.pi * n))[0:newn]
-        periodogram *= data_scale**2
+        periodogram = np.abs(np.power(fft(data), 2) / (2 * np.pi * n))[0:newn]
+        periodogram = periodogram * np.power(data_scale, 2)
         _plot_metadata(samples, accep_frac_list, psd_quants, periodogram, db_list, metadata_plotfn)
 
-    return samples
+    result = dict(samples=samples, samples_V=samples_V, psd_quants=psd_quants)
+    return result
 
 
 def generate_psd_posterior(omega, db_list, samples_τ, samples_V):
@@ -199,35 +194,22 @@ def _get_initial_spline_data(data, k, degree, omega, diffMatrixOrder, eqSpacedKn
 
 
 def _generate_initial_weights(periodogram, k):
-    w = periodogram / np.sum(periodogram)
+    scaled_periodogram = periodogram / np.sum(periodogram)
     # TODO keep k equidistant points
-    idx = np.linspace(0, len(w) - 1, k).astype(int)
-    w = w[idx]
+    idx = np.linspace(0, len(scaled_periodogram) - 1, k)
+    idx = np.round(idx).astype(int)
+    w = scaled_periodogram[idx]
 
-    # TODO: why are we truncating to len k?
     assert len(w) == k
-    w[w == 0] = 1e-50  # TODO: why are we doing this?
+    w[w == 0] = 1e-50  # prevents log(0) errors
     w = w / np.sum(w)
-    w = w[:-1]  # TODO: why are we ditching last element?
-    v = np.log(w / (1 - np.sum(w)))
+    w0 = w[:-1]
+    v = np.log(w0 / (1 - np.sum(w0)))
     # convert nans to very small
     v[np.isnan(v)] = -1e50
     v = v.reshape(-1, 1)
     assert v.shape == (k - 1, 1)
     return v
-
-
-def _format_data(data):
-    # ensure mean-centered data
-    data_original = data.copy()
-    if abs(np.mean(data)) > 1e-4:
-        data = data - np.mean(data)
-    data = data / np.std(data)
-    if not np.allclose(data, data_original):
-        logger.warning(
-            "data was not mean-centered and/or scaled to unit variance. " "This has been done automatically."
-        )
-    return data
 
 
 def _argument_preconditions(
@@ -265,7 +247,8 @@ def _argument_preconditions(
     if k is None:
         k = min(round(n / 4), 40)
 
-    data = _format_data(data)
+    if abs(np.mean(data)) > 1e-4:
+        logger.exception("data must be mean-centered before fitting")
 
     assert k >= degree + 2, "k must be at least degree + 2"
     assert (Ntotal - burnin) / thin > k, f"Must have (Ntotal-burnin)/thin > k, atm:({Ntotal} - {burnin}) / {thin} < {k}"
@@ -296,16 +279,17 @@ def _plot_metadata(samples, counts, psd_quants, periodogram, db_list, metadata_p
     ax.set_xticks([])
     ax.set_xlabel("Splines")
     ax = fig.add_subplot(gs[4, :])
+
     ax.plot(psd_quants[1, :], color='C4', label='Posterior Median')
     psd_up, psd_low = psd_quants[2, :], psd_quants[0, :]
     psd_x = np.arange(len(psd_up))
     ax.fill_between(psd_x, psd_low, psd_up, color='C4', alpha=0.2, label='90% CI')
     ylims = ax.get_ylim()
-    ax.plot([], [], color='k', label='Periodogram')
+    ax.plot([], [], color='k', label='Periodogram', zorder=-10, alpha=0.5)
+    ax.plot(periodogram, color='k', zorder=-10, alpha=0.5)
     ax.set_ylim(ylims)
     ax.legend(frameon=False, loc='upper right')
-    ax2 = ax.twinx()
-    ax2.plot(periodogram, color='k')
     ax.set_ylabel("PSD")
     fig.tight_layout()
     fig.savefig(metadata_plotfn)
+    plt.close(fig)

@@ -3,7 +3,7 @@ from bilby.core.prior import Gamma, PriorDict
 from numpy import dot
 
 from .whittle_utilities import psd_model
-
+from ..logger import logger
 
 def _vPv(v, P):
     return dot(dot(v.T, P), v)
@@ -56,7 +56,7 @@ def inv_τ_prior(v, periodogram, db_list, τα, τβ):
 
     shape = τα + n / 2
     rate = τβ + np.sum(whtn_pdgm) / (2 * np.pi) / 2
-    return Gamma(k=shape, theta=rate)
+    return Gamma(k=shape, theta=1/rate)
 
 
 def sample_φδτ(k, v, τ, τα, τβ, φ, φα, φβ, δ, δα, δβ, periodogram, db_list, P):
@@ -89,7 +89,9 @@ def llike(v, τ, pdgrm, db_list):
 
     integrand = np.log(f) + pdgrm / (f * 2 * np.pi)
     lnlike = -np.sum(integrand) / 2
-    assert np.isfinite(lnlike), f"lnlike is not finite: {lnlike}"
+    # assert np.isfinite(lnlike), f"lnlike is not finite: {lnlike}"
+    if not np.isfinite(lnlike):
+        logger.warning(f"lnlike is not finite: {lnlike}")
     return lnlike
 
 

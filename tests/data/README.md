@@ -25,4 +25,9 @@ plot(mcmc, ylog = FALSE, main = "Estimate of PSD using the P-spline method")
 
 save(list=c("data", "mcmc"), file="data.Rdata")
 
+
+write.table(mcmc$tau, file="tau_trace.txt", row.names=FALSE, col.names=FALSE)
+write.table(mcmc$ll.trace, file="ll_trace.txt", row.names=FALSE, col.names=FALSE)
+write.table(mcmc$db.list, file="db_list.txt", row.names=FALSE, col.names=FALSE)
+
 ```

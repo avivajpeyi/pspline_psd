@@ -7,7 +7,6 @@ from click.testing import CliRunner
 from pspline_psd import cli
 
 
-
 def test_command_line_interface():
     """Test the CLI."""
     runner = CliRunner()

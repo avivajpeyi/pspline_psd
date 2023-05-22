@@ -116,3 +116,6 @@ site/
 
 # custom
 test_output
+
+
+*.png

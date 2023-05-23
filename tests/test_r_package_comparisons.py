@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pytest
 from pspline_psd.utils import get_fz
-from pspline_psd.sample.gibbs_pspline_simple import _generate_initial_weights
+from pspline_psd.splines import generate_initial_spline_weights
 from pspline_psd.splines import dbspline, knot_locator
 from pspline_psd.bayesian_utilities.whittle_utilities import get_unormalised_psd
 from pspline_psd.bayesian_utilities.bayesian_functions import llike
@@ -61,8 +61,8 @@ def __compute_r_psd(data, k, degree, omega):
 def __compute_py_psd(data, k, degree, omega):
     fz = get_fz(data)
     pdgrm = np.power(np.abs(fz), 2)
-    v = _generate_initial_weights(pdgrm, k)
-    knots = knot_locator(data=data, k=k, degree=degree, eqSpaced=True)
+    v = generate_initial_spline_weights(pdgrm, k)
+    knots = knot_locator(periodogram=None, k=k, degree=degree, eqSpaced=True)
     dblist = dbspline(x=omega, knots=knots, degree=degree)
     psd = get_unormalised_psd(v, dblist)
 
@@ -132,9 +132,9 @@ def test_mcmc_comparison(helpers):
     plt.rcParams['font.family'] = 'sans-serif'
     plt.plot(figsize=(8, 4))
     plt.scatter(psd_x, periodogram, color='k', label='Data', s=0.75)
-    plt.plot(psd_x, py_psd, color='tab:orange', alpha=0.5, label='Python')
+    plt.plot(psd_x, py_psd, color='tab:orange', alpha=0.5, label='Python (CI)')
     plt.fill_between(psd_x, py_psd_p05, py_psd_p95, color='tab:orange', alpha=0.2, linewidth=0.0)
-    plt.plot(psd_x, r_psd, color='tab:green', alpha=0.5, label='R')
+    plt.plot(psd_x, r_psd, color='tab:green', alpha=0.5, label='R (uniform CI)')
     plt.fill_between(psd_x, r_psd_p05, r_psd_p95, color='tab:green', alpha=0.2, linewidth=0.0)
     # turn off grid
     plt.grid(False)

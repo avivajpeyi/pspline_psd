@@ -8,8 +8,8 @@ from pspline_psd.sample.gibbs_pspline_simple import _get_initial_values
 from pspline_psd.splines import BSpline, PSpline, dbspline, get_penalty_matrix, knot_locator
 from pspline_psd.utils import get_fz, get_periodogram
 from pspline_psd.bayesian_utilities.bayesian_functions import sample_φδτ
-from pspline_psd.sample.gibbs_pspline_simple import _get_initial_values, _get_initial_spline_data, \
-    _generate_initial_weights
+from pspline_psd.sample.gibbs_pspline_simple import _get_initial_values, initialise_splines, \
+    generate_initial_spline_weights
 
 MAKE_PLOTS = True
 
@@ -43,7 +43,7 @@ def test_llike(helpers):
     data = helpers.load_raw_data()
     degree = 3
     k = 32
-    τ, δ, φ, fz, periodogram, V, omega = _get_initial_values(data, k)
+    τ, δ, φ, fz, periodogram, omega = _get_initial_values(data, k)
     fz = get_fz(data)
 
     periodogram = get_periodogram(fz)
@@ -108,9 +108,9 @@ def test_sample_prior(helpers):
     diffMatrixOrder = 2
 
     kwargs = {'data': data, 'k': k, 'degree': degree, 'omega': omega, 'diffMatrixOrder': diffMatrixOrder}
-    τ0, δ0, φ0, fz, periodogram, V0, omega = _get_initial_values(**kwargs)
-    db_list, P = _get_initial_spline_data(data, k, degree, omega, diffMatrixOrder, eqSpacedKnots=True)
-    v = _generate_initial_weights(periodogram, k)
+    τ0, δ0, φ0, fz, periodogram, omega = _get_initial_values(**kwargs)
+    db_list, P = initialise_splines(data, k, degree, omega, diffMatrixOrder, eqSpacedKnots=True)
+    v = generate_initial_spline_weights(periodogram, k)
     # create dict with k, v, τ, τα, τβ, φ, φα, φβ, δ, δα, δβ, periodogram, db_list, P
 
     kwargs = dict(

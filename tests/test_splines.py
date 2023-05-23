@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from pspline_psd.splines import BSpline, PSpline, knot_locator, dbspline
+from pspline_psd.splines import BSpline, knot_locator, dbspline
 from pspline_psd.utils import get_fz
 from pspline_psd.sample.gibbs_pspline_simple import _get_initial_values
 from scipy import interpolate
@@ -15,7 +15,6 @@ def test_spline_creation():
     coeff = np.array([-1, 2, 0, -1])
 
     bspline = BSpline(t=knots, c=coeff, k=degree)
-    pspline = PSpline(t=knots, c=coeff, k=degree)
 
     assert np.allclose(bspline(0.5), pspline(0.5))
 
@@ -52,7 +51,7 @@ def test_basis_same_as_r_package_basis(helpers):
     # generate basis functions
     degree = 3
     k = 32
-    τ, δ, φ, fz, periodogram, V, omega = _get_initial_values(data, k)
+    τ, δ, φ, fz, periodogram, omega = _get_initial_values(data, k)
     knots = knot_locator(data, k=k, degree=degree, eqSpaced=True)
     db_list = dbspline(omega, knots, degree=degree).T
 

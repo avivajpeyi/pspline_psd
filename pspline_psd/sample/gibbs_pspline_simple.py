@@ -1,6 +1,8 @@
 import random
 import time
-
+from arviz import InferenceData
+import xarray as xr
+import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 from bilby.core.prior import Gamma, PriorDict
@@ -48,10 +50,11 @@ def gibbs_pspline_simple(
     """
     kwargs = locals()
     data_scale = np.std(data)
+    raw_data = data.copy()
     data, k = _argument_preconditions(**kwargs)
     kwargs.update({'data': data, 'k': k})
     τ0, δ0, φ0, fz, periodogram, V0, omega = _get_initial_values(**kwargs)
-    db_list, P = _get_initial_spline_data(data, k, degree, omega, diffMatrixOrder, eqSpacedKnots)
+    db_list, P, knots = _get_initial_spline_data(data, k, degree, omega, diffMatrixOrder, eqSpacedKnots)
 
     # Empty lists for the MCMC samples
     n_samples = round(Ntotal / thin)
@@ -61,7 +64,7 @@ def gibbs_pspline_simple(
     samples_V[0, :] = V0
 
     # initial values for proposal
-    ll_trace = np.zeros(Ntotal)  # log likelihood trace
+    lpost_trace = np.zeros(Ntotal)  # log likelihood trace
     accep_frac_list = np.zeros(Ntotal)  # accept_frac of accepted proposals
     sigma = 1  # proposal distribution variance for weights
     accept_frac = 0.4  # starting value for accept_frac of accepted proposals
@@ -86,7 +89,7 @@ def gibbs_pspline_simple(
             )
             args[1] = V
             accep_frac_list[itr] = accept_frac  # Acceptance probability
-
+            lpost_trace[itr] = f_store  # log post trace
             # 2. sample new values for φ, δ, τ
             φ, δ, τ = sample_φδτ(*args)
 
@@ -98,6 +101,15 @@ def gibbs_pspline_simple(
     samples = samples[burn:, :]
     samples_V = samples_V[burn:, :]
     accep_frac_list = accep_frac_list[burn:]
+    lpost_trace = lpost_trace[burn:]
+
+
+    idata = _create_inference_object(
+        posterior_samples=samples, v_samples=samples_V, lpost_trace=lpost_trace, frac_accept=accep_frac_list,
+        db_list=db_list, knots=knots,
+        periodogram=periodogram, omega=omega, raw_data=raw_data
+    )
+    make_summary_plot(idata, "TEST.png")
 
     psd_quants = generate_psd_posterior(omega, db_list, samples[:, 2], samples_V)
     psd_quants = psd_quants * np.power(data_scale, 2)
@@ -111,15 +123,16 @@ def gibbs_pspline_simple(
     return result
 
 
-def generate_psd_posterior(omega, db_list, samples_τ, samples_V):
-    nsamp = len(samples_τ)
-    psds = np.zeros((nsamp, len(omega)))
-    kwgs = dict(db_list=db_list, n=len(omega))
+def generate_psd_posterior(freq, db_list, tau_samples, v_samples):
+    nsamp = len(tau_samples)
+    psds = np.zeros((nsamp, len(freq)))
+    kwgs = dict(db_list=db_list, n=len(freq))
+
     for i in trange(nsamp, desc='Generating PSD posterior'):
-        psds[i, :] = psd_model(v=samples_V[i, :], **kwgs) * samples_τ[i]
+        psds[i, :] = psd_model(v=v_samples[i, :], **kwgs) * tau_samples[i]
 
     psd_quants = np.quantile(psds, [0.05, 0.5, 0.95], axis=0)
-    assert psd_quants.shape == (3, len(omega))
+    assert psd_quants.shape == (3, len(freq))
     return psd_quants
 
 
@@ -190,7 +203,7 @@ def _get_initial_spline_data(data, k, degree, omega, diffMatrixOrder, eqSpacedKn
         P = P / np.linalg.norm(P)
     epsilon = 1e-6
     P = P + epsilon * np.eye(P.shape[1])  # P^(-1)=Sigma (Covariance matrix)
-    return db_list, P
+    return db_list, P, knots
 
 
 def _generate_initial_weights(periodogram, k):
@@ -257,6 +270,32 @@ def _argument_preconditions(
     return data, k
 
 
+
+def make_summary_plot(idata, metadata_plotfn):
+    raw_data = idata.observed_data.raw_data.values
+    omega = idata.observed_data.periodogram.frequency.values
+    data_scale = np.std(raw_data)
+    raw_data = raw_data / data_scale
+    db_list = idata.constant_data.db_list.values
+    tau_samples = idata.posterior.tau.values.flatten()
+    v_samples = idata.posterior.v.values
+    accept_frac = idata.sample_stats.acceptance_rate.values.flatten()
+    samples = np.array([
+        idata.posterior.phi.values.flatten(),
+        idata.posterior.delta.values.flatten(),
+        idata.posterior.tau.values.flatten(),
+    ]).T
+    psd_quants = generate_psd_posterior(
+        omega, db_list, tau_samples, v_samples
+    )
+    psd_quants = psd_quants * np.power(data_scale, 2)
+    n, newn = len(raw_data), len(omega)
+    periodogram = np.abs(np.power(fft(raw_data), 2) / (2 * np.pi * n))[0:newn]
+    periodogram = periodogram * np.power(data_scale, 2)
+    _plot_metadata(samples, accept_frac, psd_quants, periodogram, db_list, metadata_plotfn)
+
+
+
 def _plot_metadata(samples, counts, psd_quants, periodogram, db_list, metadata_plotfn):
     fig = plt.figure(figsize=(5, 8), layout="constrained")
     gs = GridSpec(5, 2, figure=fig)
@@ -293,3 +332,60 @@ def _plot_metadata(samples, counts, psd_quants, periodogram, db_list, metadata_p
     fig.tight_layout()
     fig.savefig(metadata_plotfn)
     plt.close(fig)
+
+
+
+def _create_inference_object(
+    posterior_samples, v_samples, lpost_trace, frac_accept, db_list, knots,
+    periodogram, omega, raw_data) -> InferenceData:
+    nsamp, k, _ = v_samples.shape
+
+    ndraws = np.arange(nsamp)
+    nknots = np.arange(k)
+    posterior = az.dict_to_dataset(
+        dict(
+            phi=posterior_samples[:, 0],
+            delta=posterior_samples[:, 1],
+            tau=posterior_samples[:, 2],
+            v=v_samples
+        ),
+        coords=dict(knots=nknots, draws=ndraws),
+        dims=dict(
+            phi=["draws"],
+            delta=["draws",],
+            tau=["draws"],
+            v=["draws", "knots"]
+        ),
+        default_dims=[],
+        attrs={},
+    )
+    sample_stats = az.dict_to_dataset(dict(
+        acceptance_rate=frac_accept,
+        lp=lpost_trace
+    ))
+    observed_data = az.dict_to_dataset(
+        dict(periodogram=periodogram[0:len(omega)], raw_data=raw_data),
+        library=None,
+        coords={"frequency":omega, "idx": np.arange(len(raw_data))},
+        dims={'periodogram': ['frequency'], 'raw_data': ['idx']},
+        default_dims=[],
+        attrs={},
+        index_origin=None
+    )
+
+    spline_data = az.dict_to_dataset(
+        dict(knots=knots, db_list=db_list),
+        library=None,
+        coords={},
+        dims={'knots': ['location'], 'db_list': ['PSD', 'basis']},
+        default_dims=[],
+        attrs={},
+        index_origin=None
+    )
+
+    return InferenceData(
+        posterior=posterior,
+        sample_stats=sample_stats,
+        observed_data=observed_data,
+        constant_data=spline_data
+    )

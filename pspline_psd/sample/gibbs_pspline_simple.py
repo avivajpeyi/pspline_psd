@@ -1,22 +1,13 @@
-import random
 import time
-from arviz import InferenceData
-import xarray as xr
-import arviz as az
-import matplotlib.pyplot as plt
 import numpy as np
-from bilby.core.prior import Gamma, PriorDict
-from matplotlib.gridspec import GridSpec
-from scipy import sparse, stats
-from scipy.fft import fft
-from sklearn.utils import resample
-from tqdm.auto import tqdm, trange
+from tqdm.auto import trange
 
-from ..bayesian_utilities import llike, lpost, lprior, sample_φδτ
-from ..bayesian_utilities.whittle_utilities import psd_model
-from ..logger import logger
-from ..splines import BSpline, PSpline, dbspline, get_penalty_matrix, knot_locator
-from ..utils import get_fz, get_periodogram
+from ..bayesian_utilities import lpost, sample_φδτ
+from ..splines import _get_initial_spline_data
+from .sampler_initialisation import _get_initial_values, _argument_preconditions
+
+
+from .sampling_result import Result
 
 
 def gibbs_pspline_simple(
@@ -36,25 +27,17 @@ def gibbs_pspline_simple(
     diffMatrixOrder: int = 2,
     compute_psds: bool = False,
     metadata_plotfn: str = "",
-):
+) -> Result:
     """
     Gibbs sampler for the Whittle likelihood with a P-spline prior on the log spectrum.
-
-    Returns
-    -------
-    samples : np.ndarray
-        Array of shape (Ntotal, 3) containing the samples for φ, δ, τ
-    samples_V : np.ndarray
-        Array of shape (Ntotal, k, len(data)) containing the samples for the P-spline coefficients
-
     """
     kwargs = locals()
     data_scale = np.std(data)
     raw_data = data.copy()
     data, k = _argument_preconditions(**kwargs)
     kwargs.update({'data': data, 'k': k})
-    τ0, δ0, φ0, fz, periodogram, V0, omega = _get_initial_values(**kwargs)
-    db_list, P, knots = _get_initial_spline_data(data, k, degree, omega, diffMatrixOrder, eqSpacedKnots)
+    τ0, δ0, φ0, fz, periodogram, omega = _get_initial_values(**kwargs)
+    V0, db_list, P, knots = _get_initial_spline_data(periodogram, k, degree, omega, diffMatrixOrder, eqSpacedKnots)
 
     # Empty lists for the MCMC samples
     n_samples = round(Ntotal / thin)
@@ -103,37 +86,16 @@ def gibbs_pspline_simple(
     accep_frac_list = accep_frac_list[burn:]
     lpost_trace = lpost_trace[burn:]
 
-
-    idata = _create_inference_object(
-        posterior_samples=samples, v_samples=samples_V, lpost_trace=lpost_trace, frac_accept=accep_frac_list,
+    sampling_result = Result.compile_idata_from_sampling_results(
+        posterior_samples=samples, v_samples=samples_V,
+        lpost_trace=lpost_trace, frac_accept=accep_frac_list,
         db_list=db_list, knots=knots,
         periodogram=periodogram, omega=omega, raw_data=raw_data
     )
-    make_summary_plot(idata, "TEST.png")
-
-    psd_quants = generate_psd_posterior(omega, db_list, samples[:, 2], samples_V)
-    psd_quants = psd_quants * np.power(data_scale, 2)
     if metadata_plotfn:
-        n, newn = len(data), len(omega)
-        periodogram = np.abs(np.power(fft(data), 2) / (2 * np.pi * n))[0:newn]
-        periodogram = periodogram * np.power(data_scale, 2)
-        _plot_metadata(samples, accep_frac_list, psd_quants, periodogram, db_list, metadata_plotfn)
+        sampling_result.make_summary_plot(metadata_plotfn)
 
-    result = dict(samples=samples, samples_V=samples_V, psd_quants=psd_quants)
-    return result
-
-
-def generate_psd_posterior(freq, db_list, tau_samples, v_samples):
-    nsamp = len(tau_samples)
-    psds = np.zeros((nsamp, len(freq)))
-    kwgs = dict(db_list=db_list, n=len(freq))
-
-    for i in trange(nsamp, desc='Generating PSD posterior'):
-        psds[i, :] = psd_model(v=v_samples[i, :], **kwgs) * tau_samples[i]
-
-    psd_quants = np.quantile(psds, [0.05, 0.5, 0.95], axis=0)
-    assert psd_quants.shape == (3, len(freq))
-    return psd_quants
+    return sampling_result
 
 
 def _tune_proposal_distribution(aux, accept_frac, sigma, V, V_star, f_store, args):
@@ -169,223 +131,3 @@ def _tune_proposal_distribution(aux, accept_frac, sigma, V, V_star, f_store, arg
 
     accept_frac = accept_count / k_1
     return V, V_star, accept_frac, sigma  # return updated values
-
-
-def diff_matrix(k, d=2):
-    assert d < k, "d must be lower than k"
-    assert np.all(np.array([d, k])) > 0, "d, k must be +ive ints"
-    out = np.eye(k)
-    for i in range(d):
-        out = np.diff(out)
-    return out.T
-
-
-def _get_initial_values(data, k, φα: float = 1, φβ: float = 1, δα: float = 1e-04, δβ: float = 1e-04, **kwargs):
-    τ = np.var(data) / (2 * np.pi)
-    δ = δα / δβ
-    φ = φα / (φβ * δ)
-    fz = get_fz(data)
-    periodogram = get_periodogram(fz)
-    V = _generate_initial_weights(periodogram, k)
-    n = len(data)
-    omega = 2 * np.arange(0, n / 2 + 1) / n
-    return τ, δ, φ, fz, periodogram, V, omega
-
-
-def _get_initial_spline_data(data, k, degree, omega, diffMatrixOrder, eqSpacedKnots):
-    knots = knot_locator(data, k, degree, eqSpacedKnots)
-    db_list = dbspline(omega, knots, degree)
-    if eqSpacedKnots:
-        P = diff_matrix(k - 1, d=diffMatrixOrder)
-        P = np.dot(P.T, P)
-    else:
-        P = get_penalty_matrix(db_list, diffMatrixOrder)
-        P = P / np.linalg.norm(P)
-    epsilon = 1e-6
-    P = P + epsilon * np.eye(P.shape[1])  # P^(-1)=Sigma (Covariance matrix)
-    return db_list, P, knots
-
-
-def _generate_initial_weights(periodogram, k):
-    scaled_periodogram = periodogram / np.sum(periodogram)
-    # TODO keep k equidistant points
-    idx = np.linspace(0, len(scaled_periodogram) - 1, k)
-    idx = np.round(idx).astype(int)
-    w = scaled_periodogram[idx]
-
-    assert len(w) == k
-    w[w == 0] = 1e-50  # prevents log(0) errors
-    w = w / np.sum(w)
-    w0 = w[:-1]
-    v = np.log(w0 / (1 - np.sum(w0)))
-    # convert nans to very small
-    v[np.isnan(v)] = -1e50
-    v = v.reshape(-1, 1)
-    assert v.shape == (k - 1, 1)
-    return v
-
-
-def _argument_preconditions(
-    data: np.ndarray,
-    Ntotal: int,
-    burnin: int,
-    thin: int = 1,
-    τα: float = 0.001,
-    τβ: float = 0.001,
-    φα: float = 1,
-    φβ: float = 1,
-    δα: float = 1e-04,
-    δβ: float = 1e-04,
-    k: int = None,
-    eqSpacedKnots: bool = False,
-    degree: int = 3,
-    diffMatrixOrder: int = 2,
-    metadata_plotfn: str = None,
-    **kwargs,
-):
-    assert data.shape[0] > 2, "data must be a non-empty np.array"
-    assert burnin < Ntotal, "burnin must be less than Ntotal"
-    pos_ints = np.array([thin, Ntotal, burnin])
-    assert np.all(pos_ints >= 0) and np.all(pos_ints % 1 == 0), "thin, Ntotal, burnin must be +ive ints"
-    assert Ntotal > 0, "Ntotal must be a positive integer"
-    pos_flts = np.array([τα, τβ, φα, φβ, δα, δβ])
-    assert np.all(pos_flts > 0), "τ.α, τ.β, φ.α, φ.β, δ.α, δ.β must be +ive"
-    assert isinstance(eqSpacedKnots, bool), "eqSpacedKnots must be a boolean"
-    assert degree in [0, 1, 2, 3, 4, 5], "degree must be between 0 and 5"
-    assert diffMatrixOrder in [0, 1, 2], "diffMatrixOrder must be either 0, 1, or 2"
-    assert degree > diffMatrixOrder, "penalty order must be lower than the bspline density degree"
-    assert isinstance(metadata_plotfn, str), "metadata_plotdir must be a string"
-
-    n = len(data)
-    if k is None:
-        k = min(round(n / 4), 40)
-
-    if abs(np.mean(data)) > 1e-4:
-        logger.exception("data must be mean-centered before fitting")
-
-    assert k >= degree + 2, "k must be at least degree + 2"
-    assert (Ntotal - burnin) / thin > k, f"Must have (Ntotal-burnin)/thin > k, atm:({Ntotal} - {burnin}) / {thin} < {k}"
-    assert k - 2 >= diffMatrixOrder, "diffMatrixOrder must be lower than or equal to k-2"
-
-    return data, k
-
-
-
-def make_summary_plot(idata, metadata_plotfn):
-    raw_data = idata.observed_data.raw_data.values
-    omega = idata.observed_data.periodogram.frequency.values
-    data_scale = np.std(raw_data)
-    raw_data = raw_data / data_scale
-    db_list = idata.constant_data.db_list.values
-    tau_samples = idata.posterior.tau.values.flatten()
-    v_samples = idata.posterior.v.values
-    accept_frac = idata.sample_stats.acceptance_rate.values.flatten()
-    samples = np.array([
-        idata.posterior.phi.values.flatten(),
-        idata.posterior.delta.values.flatten(),
-        idata.posterior.tau.values.flatten(),
-    ]).T
-    psd_quants = generate_psd_posterior(
-        omega, db_list, tau_samples, v_samples
-    )
-    psd_quants = psd_quants * np.power(data_scale, 2)
-    n, newn = len(raw_data), len(omega)
-    periodogram = np.abs(np.power(fft(raw_data), 2) / (2 * np.pi * n))[0:newn]
-    periodogram = periodogram * np.power(data_scale, 2)
-    _plot_metadata(samples, accept_frac, psd_quants, periodogram, db_list, metadata_plotfn)
-
-
-
-def _plot_metadata(samples, counts, psd_quants, periodogram, db_list, metadata_plotfn):
-    fig = plt.figure(figsize=(5, 8), layout="constrained")
-    gs = GridSpec(5, 2, figure=fig)
-    for i, p in enumerate(['φ', 'δ', 'τ']):
-        ax = fig.add_subplot(gs[i, 0])
-        ax.plot(samples[:, i], color=f'C{i}')
-        ax.set_ylabel(p)
-        ax.set_xlabel("Iteration")
-        ax = fig.add_subplot(gs[i, 1])
-        ax.hist(samples[:, i], bins=50, color=f'C{i}')
-        ax.set_xlabel(p)
-    ax = fig.add_subplot(gs[3, 0])
-    ax.plot(counts, color='C3')
-    ax.set_ylabel("Frac accepted")
-    ax.set_xlabel("Iteration")
-    ax = fig.add_subplot(gs[3, 1])
-    for i, db in enumerate(db_list.T):
-        ax.plot(db, color=f'C{i}', alpha=0.3)
-    ax.set_yticks([])
-    ax.set_xticks([])
-    ax.set_xlabel("Splines")
-    ax = fig.add_subplot(gs[4, :])
-
-    ax.plot(psd_quants[1, :], color='C4', label='Posterior Median')
-    psd_up, psd_low = psd_quants[2, :], psd_quants[0, :]
-    psd_x = np.arange(len(psd_up))
-    ax.fill_between(psd_x, psd_low, psd_up, color='C4', alpha=0.2, label='90% CI')
-    ylims = ax.get_ylim()
-    ax.plot([], [], color='k', label='Periodogram', zorder=-10, alpha=0.5)
-    ax.plot(periodogram, color='k', zorder=-10, alpha=0.5)
-    ax.set_ylim(ylims)
-    ax.legend(frameon=False, loc='upper right')
-    ax.set_ylabel("PSD")
-    fig.tight_layout()
-    fig.savefig(metadata_plotfn)
-    plt.close(fig)
-
-
-
-def _create_inference_object(
-    posterior_samples, v_samples, lpost_trace, frac_accept, db_list, knots,
-    periodogram, omega, raw_data) -> InferenceData:
-    nsamp, k, _ = v_samples.shape
-
-    ndraws = np.arange(nsamp)
-    nknots = np.arange(k)
-    posterior = az.dict_to_dataset(
-        dict(
-            phi=posterior_samples[:, 0],
-            delta=posterior_samples[:, 1],
-            tau=posterior_samples[:, 2],
-            v=v_samples
-        ),
-        coords=dict(knots=nknots, draws=ndraws),
-        dims=dict(
-            phi=["draws"],
-            delta=["draws",],
-            tau=["draws"],
-            v=["draws", "knots"]
-        ),
-        default_dims=[],
-        attrs={},
-    )
-    sample_stats = az.dict_to_dataset(dict(
-        acceptance_rate=frac_accept,
-        lp=lpost_trace
-    ))
-    observed_data = az.dict_to_dataset(
-        dict(periodogram=periodogram[0:len(omega)], raw_data=raw_data),
-        library=None,
-        coords={"frequency":omega, "idx": np.arange(len(raw_data))},
-        dims={'periodogram': ['frequency'], 'raw_data': ['idx']},
-        default_dims=[],
-        attrs={},
-        index_origin=None
-    )
-
-    spline_data = az.dict_to_dataset(
-        dict(knots=knots, db_list=db_list),
-        library=None,
-        coords={},
-        dims={'knots': ['location'], 'db_list': ['PSD', 'basis']},
-        default_dims=[],
-        attrs={},
-        index_origin=None
-    )
-
-    return InferenceData(
-        posterior=posterior,
-        sample_stats=sample_stats,
-        observed_data=observed_data,
-        constant_data=spline_data
-    )

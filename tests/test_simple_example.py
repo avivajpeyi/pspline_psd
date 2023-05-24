@@ -1,9 +1,11 @@
 import os
 
 from pspline_psd.sample.gibbs_pspline_simple import gibbs_pspline_simple
+import numpy as np
 
 
 def test_simple_example(helpers):
+    np.random.seed(0)
     data = helpers.load_raw_data()
     data = data - data.mean()
 

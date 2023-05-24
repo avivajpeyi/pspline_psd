@@ -2,8 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pytest
 from pspline_psd.utils import get_fz
-from pspline_psd.sample.gibbs_pspline_simple import _generate_initial_weights
-from pspline_psd.splines import dbspline, knot_locator
+from pspline_psd.splines import dbspline, knot_locator, _generate_initial_weights
 from pspline_psd.bayesian_utilities.whittle_utilities import get_unormalised_psd
 from pspline_psd.bayesian_utilities.bayesian_functions import llike
 from scipy.fft import fft
@@ -123,7 +122,7 @@ def test_mcmc_comparison(helpers):
     nsteps = 2000
     data = helpers.load_raw_data()
     r_psd, r_psd_p05, r_psd_p95 = __r_mcmc(data, nsteps)
-    py_psd_p05, py_psd, py_psd_p95 = __py_mcmc(data, nsteps)
+    py_psd, py_psd_p05, py_psd_p95 = __py_mcmc(data, nsteps)
     n, newn = len(data), len(py_psd)
     periodogram = np.abs(np.power(fft(data), 2) / (2 * np.pi * n))[0:newn]
     psd_x = np.linspace(0, 3.14, newn)
@@ -131,11 +130,11 @@ def test_mcmc_comparison(helpers):
         'https://gist.githubusercontent.com/avivajpeyi/4d9839b1ceb7d3651cbb469bc6b0d69b/raw/4ee4a870126653d542572372ff3eee4e89abcab0/publication.mplstyle')
     plt.rcParams['font.family'] = 'sans-serif'
     plt.plot(figsize=(8, 4))
-    plt.scatter(psd_x, periodogram, color='k', label='Data', s=0.75)
-    plt.plot(psd_x, py_psd, color='tab:orange', alpha=0.5, label='Python')
-    plt.fill_between(psd_x, py_psd_p05, py_psd_p95, color='tab:orange', alpha=0.2, linewidth=0.0)
-    plt.plot(psd_x, r_psd, color='tab:green', alpha=0.5, label='R')
-    plt.fill_between(psd_x, r_psd_p05, r_psd_p95, color='tab:green', alpha=0.2, linewidth=0.0)
+    plt.scatter(psd_x[1:], periodogram[1:], color='k', label='Data', s=0.75)
+    plt.plot(psd_x[1:], py_psd[1:], color='tab:orange', alpha=0.5, label='Python (Uniform CI)')
+    plt.fill_between(psd_x[1:], py_psd_p05[1:], py_psd_p95[1:], color='tab:orange', alpha=0.2, linewidth=0.0)
+    plt.plot(psd_x[1:], r_psd[1:], color='tab:green', alpha=0.5, label='R (Uniform CI)')
+    plt.fill_between(psd_x[1:], r_psd_p05[1:], r_psd_p95[1:], color='tab:green', alpha=0.2, linewidth=0.0)
     # turn off grid
     plt.grid(False)
     # set font to sans-serif
@@ -153,16 +152,18 @@ def __r_mcmc(data, nsteps=200):
     r_pspline = importr("psplinePsd")
     np_cv_rules = default_converter + numpy2ri.converter
 
+    burnin = int(0.15 * nsteps)
     with np_cv_rules.context():
-        mcmc = r_pspline.gibbs_pspline(data, burnin=300, Ntotal=nsteps, degree=3, eqSpacedKnots=True)
-    return mcmc['psd.median'], mcmc['psd.p05'], mcmc['psd.p95']
+        mcmc = r_pspline.gibbs_pspline(data, burnin=burnin, Ntotal=nsteps, degree=3, eqSpacedKnots=True)
+    return mcmc['psd.median'], mcmc['psd.u05'], mcmc['psd.u95']
 
 
 from pspline_psd.sample.gibbs_pspline_simple import gibbs_pspline_simple
 
 
 def __py_mcmc(data, nsteps=200):
-    mcmc = gibbs_pspline_simple(data, burnin=300, Ntotal=nsteps, degree=3, eqSpacedKnots=True,
+    burnin = int(0.15 * nsteps)
+    mcmc = gibbs_pspline_simple(data, burnin=burnin, Ntotal=nsteps, degree=3, eqSpacedKnots=True,
                                 metadata_plotfn="py_mcmc.png")
-    psd_quants = mcmc['psd_quants']
+    psd_quants = mcmc.psd_quantiles
     return psd_quants[0, :], psd_quants[1, :], psd_quants[2, :]

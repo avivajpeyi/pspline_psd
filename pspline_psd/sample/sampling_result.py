@@ -24,14 +24,14 @@ class Result:
                 phi=posterior_samples[:, 0],
                 delta=posterior_samples[:, 1],
                 tau=posterior_samples[:, 2],
-                v=v_samples
+                v=v_samples,
             ),
             coords=dict(knots=nknots, draws=ndraws),
             dims=dict(
                 phi=["draws"],
                 delta=["draws", ],
                 tau=["draws"],
-                v=["draws", "knots"]
+                v=["draws", "knots"],
             ),
             default_dims=[],
             attrs={},
@@ -89,6 +89,10 @@ class Result:
     def sample_stats(self):
         return self.idata['sample_stats']
 
+    @property
+    def knots(self):
+        return self.idata['constant_data']['knots']
+
     def make_summary_plot(self, fn: str):
         raw_data = self.idata["observed_data"]["raw_data"]
         data_scale = np.std(raw_data)
@@ -101,7 +105,7 @@ class Result:
         periodogram = np.abs(np.power(fft(raw_data), 2) / (2 * np.pi * n))[0:newn]
         periodogram = periodogram * np.power(data_scale, 2)
 
-        _plot_metadata(self.post_samples, accept_frac, psd_quants, periodogram, self.db_list, fn)
+        _plot_metadata(self.post_samples, accept_frac, psd_quants, periodogram, self.db_list, self.knots, self.v[-1], fn)
 
     @property
     def psd_quantiles(self):

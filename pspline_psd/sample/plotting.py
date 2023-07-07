@@ -9,7 +9,7 @@ from arviz import InferenceData
 
 
 
-def _plot_metadata(post_samples, counts, psd_quants, periodogram, db_list, metadata_plotfn):
+def _plot_metadata(post_samples, counts, psd_quants, periodogram, db_list, knots, v, metadata_plotfn):
     fig = plt.figure(figsize=(5, 8), layout="constrained")
     gs = plt.GridSpec(5, 2, figure=fig)
     for i, p in enumerate(['φ', 'δ', 'τ']):
@@ -32,14 +32,16 @@ def _plot_metadata(post_samples, counts, psd_quants, periodogram, db_list, metad
     ax.set_xlabel("Splines")
     ax = fig.add_subplot(gs[4, :])
 
-    ax.plot(psd_quants[0, 1:], color='C4', label='Posterior Median')
+
     psd_up, psd_low = psd_quants[2, 1:], psd_quants[1, 1:]
-    psd_x = np.arange(len(psd_up))
-    ax.fill_between(psd_x, psd_low, psd_up, color='C4', alpha=0.2, label='90% CI')
+    psd_x = np.linspace(0,1, len(psd_up))
+    ax.plot(psd_x, psd_quants[0, 1:], color='C4')
+    ax.fill_between(psd_x, psd_low, psd_up, color='C4', alpha=0.2, label='Posterior (median, 90% CI)')
     ylims = ax.get_ylim()
     ax.plot([], [], color='k', label='Periodogram', zorder=-10, alpha=0.5)
-    ax.plot(periodogram, color='k', zorder=-10, alpha=0.5)
+    ax.plot(np.linspace(0,1, len(periodogram)), periodogram, color='k', zorder=-10, alpha=0.5)
     # plot the knots vs V here as well
+    ax.plot(knots, v.flatten()[1:], 'x', color='C3', label='Knots', alpha=0.25)
     ax.set_ylim(ylims)
     ax.legend(frameon=False, loc='upper right')
     ax.set_ylabel("PSD")

@@ -4,14 +4,17 @@ from scipy.stats import median_abs_deviation
 import numpy as np
 
 
-def generate_psd_posterior(freq, db_list, tau_samples, v_samples, uniform_bands=True):
-    nsamp = len(tau_samples)
-    psds = np.zeros((nsamp, len(freq)))
-    kwgs = dict(db_list=db_list, n=len(freq))
+def generate_psd_posterior(freq, db_list, tau_samples, v_samples, ):
+    n = len(tau_samples)
+    psd = np.zeros((n, len(freq)))
+    kwargs = dict(db_list=db_list, n=len(freq))
+    for i in trange(n, desc='Generating PSD posterior'):
+        psd[i, :] = psd_model(v=v_samples[i, :], **kwargs) * tau_samples[i]
+    return psd
 
-    for i in trange(nsamp, desc='Generating PSD posterior'):
-        psds[i, :] = psd_model(v=v_samples[i, :], **kwgs) * tau_samples[i]
 
+def generate_psd_quantiles(freq, db_list, tau_samples, v_samples, uniform_bands=True):
+    psds = generate_psd_posterior(freq, db_list, tau_samples, v_samples)
     psd_median = np.quantile(psds, 0.5, axis=0)
     psd_quants = np.quantile(psds, [0.05, 0.95], axis=0)
 

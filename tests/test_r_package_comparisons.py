@@ -7,6 +7,9 @@ from pspline_psd.bayesian_utilities.whittle_utilities import get_unormalised_psd
 from pspline_psd.bayesian_utilities.bayesian_functions import llike
 from scipy.fft import fft
 import matplotlib.pyplot as plt
+from pspline_psd.sample.gibbs_pspline_simple import gibbs_pspline_simple
+
+from pspline_psd.sample.post_processing import generate_psd_quantiles
 
 plt.style.use('default')
 # import gridspec from matplotlib
@@ -20,7 +23,7 @@ try:
 except ImportError:
     rpy2 = None
 
-
+np.random.seed(0)
 @pytest.mark.skipif(rpy2 is None, reason="rpy2 required for this test")
 def test_direct_comparison(helpers):
     data = helpers.load_raw_data()
@@ -118,8 +121,7 @@ def __make_comparison_plot(r_data, py_data):
 
 @pytest.mark.skipif(rpy2 is None, reason="rpy2 required for this test")
 def test_mcmc_comparison(helpers):
-
-    nsteps = 2000
+    nsteps = 100
     data = helpers.load_raw_data()
     r_psd, r_psd_p05, r_psd_p95 = __r_mcmc(data, nsteps)
     py_psd, py_psd_p05, py_psd_p95 = __py_mcmc(data, nsteps)
@@ -150,20 +152,69 @@ def test_mcmc_comparison(helpers):
 
 def __r_mcmc(data, nsteps=200):
     r_pspline = importr("psplinePsd")
+
     np_cv_rules = default_converter + numpy2ri.converter
 
-    burnin = int(0.15 * nsteps)
+    burnin = int(0.5 * nsteps)
     with np_cv_rules.context():
         mcmc = r_pspline.gibbs_pspline(data, burnin=burnin, Ntotal=nsteps, degree=3, eqSpacedKnots=True)
-    return mcmc['psd.median'], mcmc['psd.u05'], mcmc['psd.u95']
-
-
-from pspline_psd.sample.gibbs_pspline_simple import gibbs_pspline_simple
+    return MCMCdata.from_r(mcmc)
 
 
 def __py_mcmc(data, nsteps=200):
     burnin = int(0.15 * nsteps)
     mcmc = gibbs_pspline_simple(data, burnin=burnin, Ntotal=nsteps, degree=3, eqSpacedKnots=True,
                                 metadata_plotfn="py_mcmc.png")
-    psd_quants = mcmc.psd_quantiles
-    return psd_quants[0, :], psd_quants[1, :], psd_quants[2, :]
+
+    return mcmc
+
+
+class MCMCdata:
+    def __init__(self):
+        self.fz = None
+        self.v = None
+        self.dblist = None
+        self.psds = None
+        self.psd_quantiles = None
+        self.lnl = None
+        self.samples = None
+
+    @classmethod
+    def from_r(cls, mcmc):
+        obj = cls()
+        obj.fz = None
+        obj.v = mcmc['V']
+        obj.dblist = mcmc['db.list']
+        obj.psd = mcmc['fpsd.sample']
+        obj.psd_quantiles = np.array([
+            np.array(mcmc['psd.median']),
+            np.array(mcmc['psd.u05']),
+            np.array(mcmc['psd.u95'])
+        ])
+        obj.lnl = None
+        obj.samples = np.array([
+            mcmc['phi'],
+            mcmc['delta'],
+            mcmc['tau']
+        ]).T
+        return obj
+
+
+def test_psd_postproc(helpers):
+    data = helpers.load_raw_data()
+    nsteps = 1200
+    r_data = __r_mcmc(data, nsteps)
+    py_data = __py_mcmc(data, nsteps)
+    omega = np.linspace(0, np.pi, len(r_data.psd[:, 0]))
+    py_post = generate_psd_quantiles(omega, r_data.dblist.T, r_data.samples[:, 2], r_data.v.T)
+
+    plt.rcParams['hatch.linewidth'] = 2.0
+    plt.fill_between(omega, py_data.psd_quantiles[1, :], py_data.psd_quantiles[2, :], alpha=0.3)
+    plt.fill_between(omega, py_post[1, :], py_post[2, :], alpha=0.3,  lw=3, hatch="/", edgecolor='tab:orange', color='tab:orange')
+    plt.fill_between(omega, r_data.psd_quantiles[1, :], r_data.psd_quantiles[2, :], alpha=0.3, hatch="\\", edgecolor='tab:green', color='tab:green')
+    plt.legend(['Python', 'Python Post', 'R'])
+    plt.xlim(omega[1], omega[-2])
+    plt.ylim(0, 3)
+    plt.xlabel('Freq')
+    plt.ylabel('PSD')
+    plt.show()

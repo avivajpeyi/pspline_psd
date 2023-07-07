@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.fft import fft
 import matplotlib.pyplot as plt
-from .post_processing import generate_psd_posterior
+from .post_processing import generate_psd_quantiles
 
 from arviz import InferenceData
 
@@ -39,6 +39,7 @@ def _plot_metadata(post_samples, counts, psd_quants, periodogram, db_list, metad
     ylims = ax.get_ylim()
     ax.plot([], [], color='k', label='Periodogram', zorder=-10, alpha=0.5)
     ax.plot(periodogram, color='k', zorder=-10, alpha=0.5)
+    # plot the knots vs V here as well
     ax.set_ylim(ylims)
     ax.legend(frameon=False, loc='upper right')
     ax.set_ylabel("PSD")

@@ -10,7 +10,7 @@ def test_simple_example(helpers):
     data = data - data.mean()
 
     fn = f"{helpers.OUTDIR}/sample_metadata.png"
-    gibbs_pspline_simple(
+    res = gibbs_pspline_simple(
         data=data, Ntotal=50, burnin=10, degree=3,
         eqSpacedKnots=True, compute_psds=True, metadata_plotfn=fn
     )

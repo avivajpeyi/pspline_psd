@@ -2,7 +2,7 @@ import arviz as az
 from arviz import InferenceData
 import numpy as np
 from .plotting import _plot_metadata
-from .post_processing import generate_psd_posterior
+from .post_processing import generate_psd_quantiles, generate_psd_posterior
 from scipy.fft import fft
 
 
@@ -108,7 +108,15 @@ class Result:
         """return quants if present, else compute cache and return """
         # if attribute exists return
         if not hasattr(self, '_psd_quant'):
-            self._psd_quant = generate_psd_posterior(
+            self._psd_quant = generate_psd_quantiles(
                 self.omega, self.db_list, self.post_samples[:, 2], self.v
             )
         return self._psd_quant
+
+    @property
+    def psd_posterior(self):
+        if not hasattr(self, '_psds'):
+            self._psds = generate_psd_posterior(
+                self.omega, self.db_list, self.post_samples[:, 2], self.v
+            )
+        return self._psds

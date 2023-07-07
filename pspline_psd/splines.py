@@ -8,6 +8,7 @@ def knot_locator(pdgrm: np.ndarray, k: int, degree: int, eqSpaced: bool = False)
     Returns
     -------
     knots : np.ndarray of shape (k - degree + 1,)
+    (The x-positions of the knots)
 
     #TODO: ask if there is a simple way to test if this is correct.
 
